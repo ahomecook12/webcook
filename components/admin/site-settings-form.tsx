@@ -25,17 +25,19 @@ export type SiteSettings = {
   hero_media: HeroMedia[] | null;
   homepage_category_ids: string[] | null;
 };
+export type SocialLink = {
+  id: string;
+  name: string;
+  url: string;
+  icon_url: string;
+};
 
 export type StorefrontSettings = {
   id: string;
 
-  // Social
+   // Social
   social_enabled: boolean;
-  instagram_url: string | null;
-  facebook_url: string | null;
-  youtube_url: string | null;
-  whatsapp_group_url: string | null;
-  whatsapp_channel_url: string | null;
+  social_links: SocialLink[];
 
   // Payment
   twint_enabled: boolean;
@@ -97,24 +99,8 @@ export function SiteSettingsForm({
     storefrontSettings?.social_enabled ?? true,
   );
 
-  const [instagramUrl, setInstagramUrl] = useState(
-    storefrontSettings?.instagram_url ?? "",
-  );
-
-  const [facebookUrl, setFacebookUrl] = useState(
-    storefrontSettings?.facebook_url ?? "",
-  );
-
-  const [youtubeUrl, setYoutubeUrl] = useState(
-    storefrontSettings?.youtube_url ?? "",
-  );
-
-  const [whatsappGroupUrl, setWhatsappGroupUrl] = useState(
-    storefrontSettings?.whatsapp_group_url ?? "",
-  );
-
-  const [whatsappChannelUrl, setWhatsappChannelUrl] = useState(
-    storefrontSettings?.whatsapp_channel_url ?? "",
+  const [socialLinks, setSocialLinks] = useState<SocialLink[]>(
+    storefrontSettings?.social_links ?? [],
   );
 
   /*
@@ -230,6 +216,85 @@ export function SiteSettingsForm({
 
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+
+    function addSocialLink() {
+    setSocialLinks((current) => [
+      ...current,
+      {
+        id: crypto.randomUUID(),
+        name: "",
+        url: "",
+        icon_url: "",
+      },
+    ]);
+  }
+
+  function updateSocialLink(
+    id: string,
+    field: keyof SocialLink,
+    value: string,
+  ) {
+    setSocialLinks((current) =>
+      current.map((link) =>
+        link.id === id
+          ? { ...link, [field]: value }
+          : link,
+      ),
+    );
+  }
+
+  function removeSocialLink(id: string) {
+    setSocialLinks((current) =>
+      current.filter((link) => link.id !== id),
+    );
+  }
+
+  async function uploadSocialIcon(
+    event: React.ChangeEvent<HTMLInputElement>,
+    id: string,
+  ) {
+    const file = event.target.files?.[0];
+
+    event.target.value = "";
+
+    if (!file) return;
+
+    setUploading(true);
+
+    try {
+      const body = new FormData();
+
+      body.append("file", file);
+      body.append("folder", "social");
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error || "Icon upload failed.",
+        );
+      }
+
+      updateSocialLink(
+        id,
+        "icon_url",
+        data.url as string,
+      );
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Icon upload failed.",
+      );
+    } finally {
+      setUploading(false);
+    }
+  }
 
     /*
    * ---------------------------------------------------------
@@ -402,20 +467,8 @@ export function SiteSettingsForm({
          */
         social_enabled: socialEnabled,
 
-        instagram_url:
-          instagramUrl.trim() || null,
-
-        facebook_url:
-          facebookUrl.trim() || null,
-
-        youtube_url:
-          youtubeUrl.trim() || null,
-
-        whatsapp_group_url:
-          whatsappGroupUrl.trim() || null,
-
-        whatsapp_channel_url:
-          whatsappChannelUrl.trim() || null,
+        
+        social_links: socialLinks,
 
         /*
          * Payment
@@ -952,33 +1005,31 @@ export function SiteSettingsForm({
           </CardContent>
         </Card>
 
+  
         {/* =====================================================
             SOCIAL MEDIA
         ====================================================== */}
 
         <Card>
           <CardHeader>
-            <CardTitle>
-              Social Media
-            </CardTitle>
+            <CardTitle>Social Media</CardTitle>
 
             <p className="text-sm text-muted-foreground">
-              Add your social media and WhatsApp links.
-              These will appear in the floating social
-              panel on the homepage.
+              Add as many social media links as you like.
+              Each link can have its own name, URL and icon.
             </p>
           </CardHeader>
 
           <CardContent className="space-y-5">
+
+            {/* ENABLE / DISABLE */}
 
             <label className="flex items-center gap-3">
               <input
                 type="checkbox"
                 checked={socialEnabled}
                 onChange={(event) =>
-                  setSocialEnabled(
-                    event.target.checked,
-                  )
+                  setSocialEnabled(event.target.checked)
                 }
               />
 
@@ -990,95 +1041,160 @@ export function SiteSettingsForm({
             {socialEnabled && (
               <div className="space-y-4">
 
-                <div className="space-y-2">
-                  <Label htmlFor="instagram-url">
-                    Instagram
-                  </Label>
+                {/* SOCIAL LINKS */}
 
-                  <Input
-                    id="instagram-url"
-                    value={instagramUrl}
-                    onChange={(event) =>
-                      setInstagramUrl(
-                        event.target.value,
-                      )
-                    }
-                    placeholder="https://www.instagram.com/yourpage"
-                  />
-                </div>
+                {socialLinks.map((link, index) => (
+                  <div
+                    key={link.id}
+                    className="rounded-xl border p-4"
+                  >
+                    <div className="mb-4 flex items-center justify-between">
+                      <span className="text-sm font-medium">
+                        Social link {index + 1}
+                      </span>
 
-                <div className="space-y-2">
-                  <Label htmlFor="facebook-url">
-                    Facebook
-                  </Label>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          removeSocialLink(link.id)
+                        }
+                      >
+                        Remove
+                      </Button>
+                    </div>
 
-                  <Input
-                    id="facebook-url"
-                    value={facebookUrl}
-                    onChange={(event) =>
-                      setFacebookUrl(
-                        event.target.value,
-                      )
-                    }
-                    placeholder="https://www.facebook.com/yourpage"
-                  />
-                </div>
+                    <div className="space-y-4">
 
-                <div className="space-y-2">
-                  <Label htmlFor="youtube-url">
-                    YouTube
-                  </Label>
+                      {/* NAME */}
 
-                  <Input
-                    id="youtube-url"
-                    value={youtubeUrl}
-                    onChange={(event) =>
-                      setYoutubeUrl(
-                        event.target.value,
-                      )
-                    }
-                    placeholder="https://www.youtube.com/@yourchannel"
-                  />
-                </div>
+                      <div className="space-y-2">
+                        <Label
+                          htmlFor={`social-name-${link.id}`}
+                        >
+                          Name
+                        </Label>
 
-                <div className="space-y-2">
-                  <Label htmlFor="whatsapp-group-url">
-                    WhatsApp Group
-                  </Label>
+                        <Input
+                          id={`social-name-${link.id}`}
+                          value={link.name}
+                          onChange={(event) =>
+                            updateSocialLink(
+                              link.id,
+                              "name",
+                              event.target.value,
+                            )
+                          }
+                          placeholder="Instagram"
+                        />
+                      </div>
 
-                  <Input
-                    id="whatsapp-group-url"
-                    value={whatsappGroupUrl}
-                    onChange={(event) =>
-                      setWhatsappGroupUrl(
-                        event.target.value,
-                      )
-                    }
-                    placeholder="https://chat.whatsapp.com/..."
-                  />
-                </div>
+                      {/* URL */}
 
-                <div className="space-y-2">
-                  <Label htmlFor="whatsapp-channel-url">
-                    WhatsApp Channel
-                  </Label>
+                      <div className="space-y-2">
+                        <Label
+                          htmlFor={`social-url-${link.id}`}
+                        >
+                          Link
+                        </Label>
 
-                  <Input
-                    id="whatsapp-channel-url"
-                    value={whatsappChannelUrl}
-                    onChange={(event) =>
-                      setWhatsappChannelUrl(
-                        event.target.value,
-                      )
-                    }
-                    placeholder="https://whatsapp.com/channel/..."
-                  />
-                </div>
+                        <Input
+                          id={`social-url-${link.id}`}
+                          type="url"
+                          value={link.url}
+                          onChange={(event) =>
+                            updateSocialLink(
+                              link.id,
+                              "url",
+                              event.target.value,
+                            )
+                          }
+                          placeholder="https://..."
+                        />
+                      </div>
+
+                      {/* ICON */}
+
+                      <div className="space-y-2">
+                        <Label>
+                          Icon
+                        </Label>
+
+                        <div className="flex items-center gap-4">
+
+                          {/* CURRENT ICON */}
+
+                          {link.icon_url ? (
+                            <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full border">
+                              <Image
+                                src={link.icon_url}
+                                alt={
+                                  link.name ||
+                                  "Social icon"
+                                }
+                                fill
+                                unoptimized
+                                className="object-cover"
+                              />
+                            </div>
+                          ) : (
+                            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border text-xs text-muted-foreground">
+                              No icon
+                            </div>
+                          )}
+
+                          {/* UPLOAD */}
+
+                          <div className="space-y-1">
+                            <Input
+                              id={`social-icon-${link.id}`}
+                              type="file"
+                              accept="image/*"
+                              onChange={(event) =>
+                                uploadSocialIcon(
+                                  event,
+                                  link.id,
+                                )
+                              }
+                              disabled={uploading}
+                            />
+
+                            <p className="text-xs text-muted-foreground">
+                              {uploading
+                                ? "Uploading..."
+                                : "Upload an icon image."}
+                            </p>
+                          </div>
+
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+                ))}
+
+                {/* ADD BUTTON */}
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={addSocialLink}
+                  className="w-full"
+                >
+                  + Add social link
+                </Button>
+
+                {socialLinks.length === 0 && (
+                  <p className="text-center text-sm text-muted-foreground">
+                    No social links added yet.
+                  </p>
+                )}
 
                 <p className="text-xs text-muted-foreground">
-                  Leave any field empty if you do not
-                  want that social network or WhatsApp
-                  option displayed.
+                  You can add unlimited social links. The
+                  name you enter here will appear below the
+                  circular icon on the homepage.
                 </p>
 
               </div>
@@ -1086,6 +1202,8 @@ export function SiteSettingsForm({
 
           </CardContent>
         </Card>
+
+
 
         {/* =====================================================
             PAYMENT

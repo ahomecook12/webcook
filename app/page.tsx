@@ -25,7 +25,7 @@ type StoreProduct = {
   images: string[] | null;
   display_settings: DisplaySettings | null;
   active: boolean;
-    sticker: string | null;
+  sticker: string | null;
 };
 
 type SiteSettings = {
@@ -79,12 +79,8 @@ export default async function Home() {
       .from("storefront_settings")
       .select(
         `
-        social_enabled,
-        instagram_url,
-        facebook_url,
-        youtube_url,
-        whatsapp_group_url,
-        whatsapp_channel_url
+       social_enabled,
+    social_links
       `,
       )
       .maybeSingle(),
@@ -303,20 +299,21 @@ export default async function Home() {
     <main
       className={`site-theme-${settings.theme} min-h-screen bg-background text-foreground`}
     >
-      <SiteHeader isLoggedIn={!!user} isAdmin={isAdmin} cartCount={cartCount}  userId={user?.id} />
+      <SiteHeader
+        isLoggedIn={!!user}
+        isAdmin={isAdmin}
+        cartCount={cartCount}
+        userId={user?.id}
+      />
 
       <SocialFloat
-        settings={
-          socialSettings ?? {
-            social_enabled: false,
-            instagram_url: null,
-            facebook_url: null,
-            youtube_url: null,
-            whatsapp_group_url: null,
-            whatsapp_channel_url: null,
-          }
-        }
-      />
+  settings={
+    socialSettings ?? {
+      social_enabled: false,
+      social_links: [],
+    }
+  }
+/>
 
       {/* HERO */}
       <section className="relative  bg-muted/40">
@@ -375,17 +372,17 @@ export default async function Home() {
           )}
         </div>
         {/* Decorative hero-to-products transition */}
-<div className="pointer-events-none absolute bottom-0 left-0 right-0 translate-y-1/2">
-  <div className="mx-auto h-3 max-w-5xl rounded-full bg-primary/20 blur-xl" />
-  <div className="mx-auto -mt-2 h-px max-w-4xl bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
-</div>
-    </section>
+        <div className="pointer-events-none absolute bottom-0 left-0 right-0 translate-y-1/2">
+          <div className="mx-auto h-3 max-w-5xl rounded-full bg-primary/20 blur-xl" />
+          <div className="mx-auto -mt-2 h-px max-w-4xl bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+        </div>
+      </section>
 
-{/* HERO → PRODUCTS TRANSITION */}
-<div className="relative h-16 overflow-hidden bg-background">
-  {/* Soft golden glow */}
-  <div
-    className="
+      {/* HERO → PRODUCTS TRANSITION */}
+      <div className="relative h-16 overflow-hidden bg-background">
+        {/* Soft golden glow */}
+        <div
+          className="
       pointer-events-none
       absolute left-1/2 top-1/2
       h-12 w-[70%]
@@ -395,12 +392,12 @@ export default async function Home() {
       blur-2xl
       animate-glow-drift
     "
-  />
+        />
 
-  {/* Elegant moving line */}
-  <div className="absolute left-0 right-0 top-1/2 h-px bg-primary/15">
-    <div
-      className="
+        {/* Elegant moving line */}
+        <div className="absolute left-0 right-0 top-1/2 h-px bg-primary/15">
+          <div
+            className="
         absolute inset-y-0
         w-1/4
         bg-gradient-to-r
@@ -409,12 +406,12 @@ export default async function Home() {
         to-transparent
         animate-line-sweep
       "
-    />
-  </div>
+          />
+        </div>
 
-  {/* Small central diamond */}
-  <div
-    className="
+        {/* Small central diamond */}
+        <div
+          className="
       absolute left-1/2 top-1/2
       h-2.5 w-2.5
       -translate-x-1/2 -translate-y-1/2
@@ -424,14 +421,11 @@ export default async function Home() {
       shadow-[0_0_14px_rgba(234,179,8,0.45)]
       animate-soft-pulse
     "
-  />
-</div>
+        />
+      </div>
 
-{/* PRODUCT STRIPS */}
-<section
-  id="products"
-  className="mx-auto max-w-6xl px-4 py-14 sm:px-6"
->
+      {/* PRODUCT STRIPS */}
+      <section id="products" className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
         <div className="mb-8">
           <p className="text-sm font-medium text-primary">DISCOVER</p>
 

@@ -17,20 +17,25 @@ export async function POST(request: Request) {
     const folder = formData.get("folder");
 
     if (!file) {
-      return NextResponse.json(
-        { error: "No file provided" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
     if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
       return NextResponse.json(
         { error: "Only image and video files can be uploaded" },
-        { status: 400 }
+        { status: 400 },
       );
     }
-    if (folder !== null && folder !== "hero" &&
-      folder !== "category" && folder !== "products") {
-      return NextResponse.json({ error: "Invalid upload folder" }, { status: 400 });
+    if (
+      folder !== null &&
+      folder !== "hero" &&
+      folder !== "category" &&
+      folder !== "products" &&
+      folder !== "social"
+    ) {
+      return NextResponse.json(
+        { error: "Invalid upload folder" },
+        { status: 400 },
+      );
     }
 
     const bytes = await file.arrayBuffer();
@@ -45,13 +50,15 @@ export async function POST(request: Request) {
                 ? "shop/hero"
                 : folder === "category"
                   ? "shop/categories"
-                  : "shop/products",
+                  : folder === "social"
+                    ? "shop/social"
+                    : "shop/products",
             resource_type: file.type.startsWith("video/") ? "video" : "image",
           },
           (error, result) => {
             if (error) reject(error);
             else resolve(result);
-          }
+          },
         )
         .end(buffer);
     });
@@ -68,9 +75,6 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Cloudinary upload error:", error);
 
-    return NextResponse.json(
-      { error: "Upload failed" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }
 }
