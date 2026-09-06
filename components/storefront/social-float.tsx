@@ -152,7 +152,7 @@ export function SocialFloat({ settings }: SocialFloatProps) {
                 hover:bg-background
               "
             >
-              <span className="relative z-10 text-xl">⭐</span>
+              <span className="relative z-10 text-xl">📞</span>
 
               {/* Shimmer */}
               <span className="pointer-events-none absolute inset-1 overflow-hidden rounded-full">
@@ -196,7 +196,7 @@ export function SocialFloat({ settings }: SocialFloatProps) {
               top-0
               flex
               h-full
-              w-[min(160px,100vw)]
+              w-[min(150px,100vw)]
               flex-col
               overflow-hidden
               border-l
