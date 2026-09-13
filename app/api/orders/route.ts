@@ -8,7 +8,14 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient();
+    const authHeader = request.headers.get("authorization");
+
+const accessToken =
+  authHeader?.startsWith("Bearer ")
+    ? authHeader.slice(7)
+    : undefined;
+
+const supabase = await createClient(accessToken);
 
     /* =====================================================
        Require logged-in user
