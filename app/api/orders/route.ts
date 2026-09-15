@@ -1,6 +1,71 @@
+
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { sendPushNotification } from "@/lib/notifications/sendPushNotification";
+
+/* =========================================================
+   EXPO PUSH NOTIFICATION
+   ========================================================= */
+
+async function sendExpoPushNotification({
+  token,
+  title,
+  body,
+  data = {},
+}: {
+  token: string;
+  title: string;
+  body: string;
+  data?: Record<string, string>;
+}) {
+  try {
+    const response = await fetch(
+      "https://exp.host/--/api/v2/push/send",
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Accept-encoding": "gzip, deflate",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          to: token,
+          sound: "default",
+          title,
+          body,
+          data,
+          channelId: "default",
+        }),
+      },
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      console.error(
+        "❌ Expo push notification failed:",
+        result,
+      );
+
+      return null;
+    }
+
+    console.log(
+      "✅ Expo push notification sent:",
+      result,
+    );
+
+    return result;
+  } catch (error) {
+    console.error(
+      "❌ Expo push notification error:",
+      error,
+    );
+
+    return null;
+  }
+}
 
 /* =========================================================
    POST — Create order
@@ -10,12 +75,12 @@ export async function POST(request: Request) {
   try {
     const authHeader = request.headers.get("authorization");
 
-const accessToken =
-  authHeader?.startsWith("Bearer ")
-    ? authHeader.slice(7)
-    : undefined;
+    const accessToken =
+      authHeader?.startsWith("Bearer ")
+        ? authHeader.slice(7)
+        : undefined;
 
-const supabase = await createClient(accessToken);
+    const supabase = await createClient(accessToken);
 
     /* =====================================================
        Require logged-in user
@@ -52,10 +117,6 @@ const supabase = await createClient(accessToken);
 
     /* =====================================================
        Shipping validation
-       
-       IMPORTANT:
-       This validation happens ONLY when placing the order.
-       It is NOT used when adding products to the cart.
        ===================================================== */
 
     if (
@@ -78,7 +139,11 @@ const supabase = await createClient(accessToken);
        Payment method validation
        ===================================================== */
 
-    if (!["twint", "bank_transfer"].includes(payment_method)) {
+    if (
+      !["twint", "bank_transfer"].includes(
+        payment_method,
+      )
+    ) {
       return NextResponse.json(
         {
           error: "Please select a valid payment method.",
@@ -91,11 +156,12 @@ const supabase = await createClient(accessToken);
        Find user's cart
        ===================================================== */
 
-    const { data: cart, error: cartError } = await supabase
-      .from("carts")
-      .select("id")
-      .eq("user_id", user.id)
-      .maybeSingle();
+    const { data: cart, error: cartError } =
+      await supabase
+        .from("carts")
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle();
 
     if (cartError) {
       throw cartError;
@@ -114,7 +180,10 @@ const supabase = await createClient(accessToken);
        Get cart items + products
        ===================================================== */
 
-    const { data: cartItems, error: itemsError } = await supabase
+    const {
+      data: cartItems,
+      error: itemsError,
+    } = await supabase
       .from("cart_items")
       .select(
         `
@@ -171,17 +240,14 @@ const supabase = await createClient(accessToken);
       if (!item.product) {
         return NextResponse.json(
           {
-            error: "One of the products in your cart is no longer available.",
+            error:
+              "One of the products in your cart is no longer available.",
           },
           { status: 400 },
         );
       }
 
       const product = item.product;
-
-      /* ---------------------------------------------------
-         Product must still be active
-         --------------------------------------------------- */
 
       if (!product.active) {
         return NextResponse.json(
@@ -194,37 +260,17 @@ const supabase = await createClient(accessToken);
 
       const stock = product.stock ?? 0;
 
-      const availableForSale = product.available_for_sale ?? false;
+      const availableForSale =
+        product.available_for_sale ?? false;
 
-      /* ---------------------------------------------------
-         Determine product state
-         
-         NORMAL SALE:
-         available_for_sale = true
-         stock > 0
+      const isPreBooking =
+        !availableForSale && stock <= 0;
 
-         PRE-BOOKING:
-         available_for_sale = false
-         stock = 0
+      const isNormalSale =
+        availableForSale && stock > 0;
 
-         UNAVAILABLE:
-         available_for_sale = true
-         stock = 0
-
-         OR:
-         available_for_sale = false
-         stock > 0
-         --------------------------------------------------- */
-
-      const isPreBooking = !availableForSale && stock <= 0;
-
-      const isNormalSale = availableForSale && stock > 0;
-
-      const canOrder = isNormalSale || isPreBooking;
-
-      /* ---------------------------------------------------
-         Product cannot currently be ordered
-         --------------------------------------------------- */
+      const canOrder =
+        isNormalSale || isPreBooking;
 
       if (!canOrder) {
         return NextResponse.json(
@@ -235,15 +281,10 @@ const supabase = await createClient(accessToken);
         );
       }
 
-      /* ---------------------------------------------------
-         Normal products must respect stock.
-         
-         PRE-BOOKING PRODUCTS:
-         stock = 0 intentionally,
-         therefore stock does NOT limit quantity.
-         --------------------------------------------------- */
-
-      if (!isPreBooking && item.quantity > stock) {
+      if (
+        !isPreBooking &&
+        item.quantity > stock
+      ) {
         return NextResponse.json(
           {
             error: `Not enough stock available for ${product.name}.`,
@@ -257,21 +298,32 @@ const supabase = await createClient(accessToken);
        Calculate subtotal
        ===================================================== */
 
-    const subtotal = items.reduce((total, item) => {
-      if (!item.product) {
-        return total;
-      }
+    const subtotal = items.reduce(
+      (total, item) => {
+        if (!item.product) {
+          return total;
+        }
 
-      const price = item.product.sale_price ?? item.product.price;
+        const price =
+          item.product.sale_price ??
+          item.product.price;
 
-      return total + Number(price) * item.quantity;
-    }, 0);
+        return (
+          total +
+          Number(price) * item.quantity
+        );
+      },
+      0,
+    );
 
     /* =====================================================
        Get storefront settings
        ===================================================== */
 
-    const { data: storefrontSettings, error: settingsError } = await supabase
+    const {
+      data: storefrontSettings,
+      error: settingsError,
+    } = await supabase
       .from("storefront_settings")
       .select(
         `
@@ -293,7 +345,10 @@ const supabase = await createClient(accessToken);
        Validate payment method availability
        ===================================================== */
 
-    if (payment_method === "twint" && !storefrontSettings?.twint_enabled) {
+    if (
+      payment_method === "twint" &&
+      !storefrontSettings?.twint_enabled
+    ) {
       return NextResponse.json(
         {
           error: "TWINT is currently unavailable.",
@@ -308,7 +363,8 @@ const supabase = await createClient(accessToken);
     ) {
       return NextResponse.json(
         {
-          error: "Bank transfer is currently unavailable.",
+          error:
+            "Bank transfer is currently unavailable.",
         },
         { status: 400 },
       );
@@ -318,11 +374,14 @@ const supabase = await createClient(accessToken);
        Calculate shipping
        ===================================================== */
 
-    const shippingCost = storefrontSettings?.shipping_enabled
-      ? storefrontSettings.free_shipping
-        ? 0
-        : Number(storefrontSettings.shipping_price ?? 0)
-      : 0;
+    const shippingCost =
+      storefrontSettings?.shipping_enabled
+        ? storefrontSettings.free_shipping
+          ? 0
+          : Number(
+              storefrontSettings.shipping_price ?? 0,
+            )
+        : 0;
 
     /* =====================================================
        Calculate final total
@@ -334,7 +393,10 @@ const supabase = await createClient(accessToken);
        Create order
        ===================================================== */
 
-    const { data: order, error: orderError } = await supabase
+    const {
+      data: order,
+      error: orderError,
+    } = await supabase
       .from("orders")
       .insert({
         user_id: user.id,
@@ -359,7 +421,8 @@ const supabase = await createClient(accessToken);
 
         shipping_city: city.trim(),
 
-        shipping_postal_code: postal_code.trim(),
+        shipping_postal_code:
+          postal_code.trim(),
 
         shipping_country: country.trim(),
       })
@@ -377,7 +440,9 @@ const supabase = await createClient(accessToken);
     const orderItems = items.map((item) => {
       const product = item.product!;
 
-      const unitPrice = product.sale_price ?? product.price;
+      const unitPrice =
+        product.sale_price ??
+        product.price;
 
       return {
         order_id: order.id,
@@ -390,9 +455,12 @@ const supabase = await createClient(accessToken);
 
         unit_price: Number(unitPrice),
 
-        total_price: Number(unitPrice) * item.quantity,
+        total_price:
+          Number(unitPrice) *
+          item.quantity,
 
-        weight_grams: product.weight_grams,
+        weight_grams:
+          product.weight_grams,
 
         size: product.size,
 
@@ -404,7 +472,9 @@ const supabase = await createClient(accessToken);
       };
     });
 
-    const { error: orderItemsError } = await supabase
+    const {
+      error: orderItemsError,
+    } = await supabase
       .from("order_items")
       .insert(orderItems);
 
@@ -413,37 +483,41 @@ const supabase = await createClient(accessToken);
     }
 
     /* =====================================================
-       Update user's profile with shipping information
+       Update user's profile
        ===================================================== */
 
-    const { error: profileError } = await supabase
-      .from("profiles")
-      .update({
-        full_name: full_name.trim(),
+    const { error: profileError } =
+      await supabase
+        .from("profiles")
+        .update({
+          full_name: full_name.trim(),
 
-        phone: phone.trim(),
+          phone: phone.trim(),
 
-        address: address.trim(),
+          address: address.trim(),
 
-        city: city.trim(),
+          city: city.trim(),
 
-        postal_code: postal_code.trim(),
+          postal_code: postal_code.trim(),
 
-        country: country.trim(),
+          country: country.trim(),
 
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", user.id);
+          updated_at:
+            new Date().toISOString(),
+        })
+        .eq("id", user.id);
 
     if (profileError) {
       throw profileError;
     }
 
     /* =====================================================
-       Clear cart after successful order creation
+       Clear cart
        ===================================================== */
 
-    const { error: clearCartError } = await supabase
+    const {
+      error: clearCartError,
+    } = await supabase
       .from("cart_items")
       .delete()
       .eq("cart_id", cart.id);
@@ -451,25 +525,33 @@ const supabase = await createClient(accessToken);
     if (clearCartError) {
       throw clearCartError;
     }
+
     /* =========================================================
-   Create notifications
-   - Customer: order placed
-   - Admins: new order received
-   ========================================================= */
+       NOTIFICATIONS
+       ========================================================= */
 
-    const serviceSupabase = createServiceRoleClient();
+    const serviceSupabase =
+      createServiceRoleClient();
 
-    /* ---------------------------------------------------------
-   Customer notification
-   --------------------------------------------------------- */
+    /* =========================================================
+       1. CUSTOMER DATABASE NOTIFICATION
+       ========================================================= */
 
-    const { error: customerNotificationError } = await serviceSupabase
+    const {
+      error: customerNotificationError,
+    } = await serviceSupabase
       .from("notifications")
       .insert({
         user_id: user.id,
+
         type: "order_placed",
+
         title: "Order placed",
-        message: `Your order ${order.order_number} has been placed successfully.`,
+
+        message:
+          `Your order ${order.order_number} ` +
+          `has been placed successfully.`,
+
         order_id: order.id,
       });
 
@@ -480,33 +562,53 @@ const supabase = await createClient(accessToken);
       );
     }
 
-    /* ---------------------------------------------------------
-   Find all admins
-   --------------------------------------------------------- */
+    /* =========================================================
+       2. FIND ALL ADMINS
+       ========================================================= */
 
-    const { data: admins, error: adminsError } = await serviceSupabase
+    const {
+      data: admins,
+      error: adminsError,
+    } = await serviceSupabase
       .from("profiles")
       .select("id")
       .eq("role", "admin");
 
     if (adminsError) {
-      console.error("Failed to find admins for notification:", adminsError);
-    } else if (admins && admins.length > 0) {
-      /* -------------------------------------------------------
-     Admin notification
-     ------------------------------------------------------- */
+      console.error(
+        "Failed to find admins for notification:",
+        adminsError,
+      );
+    } else if (
+      admins &&
+      admins.length > 0
+    ) {
+      /* =======================================================
+         Create admin database notifications
+         ======================================================= */
 
-      const adminNotifications = admins.map((admin) => ({
-        user_id: admin.id,
-        type: "admin_order_placed",
-        title: "New order received",
-        message: `A new order ${order.order_number} has been placed.`,
-        order_id: order.id,
-      }));
+      const adminNotifications =
+        admins.map((admin) => ({
+          user_id: admin.id,
 
-      const { error: adminNotificationError } = await serviceSupabase
+          type: "admin_order_placed",
+
+          title: "New order received",
+
+          message:
+            `A new order ${order.order_number} ` +
+            `has been placed.`,
+
+          order_id: order.id,
+        }));
+
+      const {
+        error: adminNotificationError,
+      } = await serviceSupabase
         .from("notifications")
-        .insert(adminNotifications);
+        .insert(
+          adminNotifications,
+        );
 
       if (adminNotificationError) {
         console.error(
@@ -514,9 +616,131 @@ const supabase = await createClient(accessToken);
           adminNotificationError,
         );
       }
+
+      /* =======================================================
+         3. PUSH NOTIFICATIONS
+
+         Send to every admin device:
+
+         - Android app → Expo push token
+         - Web browser → Firebase web push token
+         ======================================================= */
+
+      const adminIds =
+        admins.map(
+          (admin) => admin.id,
+        );
+
+      const {
+        data: pushTokens,
+        error: pushTokensError,
+      } = await serviceSupabase
+        .from("push_tokens")
+        .select(
+          `
+            user_id,
+            expo_push_token,
+            web_push_token,
+            platform
+          `,
+        )
+        .in("user_id", adminIds);
+
+      if (pushTokensError) {
+        console.error(
+          "Failed to find admin push tokens:",
+          pushTokensError,
+        );
+      } else if (
+        pushTokens &&
+        pushTokens.length > 0
+      ) {
+        /* =====================================================
+           Send push notification to every registered device
+           ===================================================== */
+
+        const pushPromises =
+          pushTokens.map(async (pushToken) => {
+            const pushData = {
+              type: "order",
+              order_id: order.id,
+            };
+
+            /* =================================================
+               ANDROID / EXPO
+               ================================================= */
+
+            if (
+              pushToken.expo_push_token
+            ) {
+              await sendExpoPushNotification({
+                token:
+                  pushToken.expo_push_token,
+
+                title:
+                  "New order received",
+
+                body:
+                  `Order ${order.order_number} ` +
+                  `has been placed.`,
+
+                data: pushData,
+              });
+            }
+
+            /* =================================================
+               WEB / FIREBASE
+               ================================================= */
+
+            if (
+              pushToken.web_push_token
+            ) {
+              await sendPushNotification({
+                token:
+                  pushToken.web_push_token,
+
+                title:
+                  "New order received",
+
+                body:
+                  `Order ${order.order_number} ` +
+                  `has been placed.`,
+
+                data: pushData,
+              });
+            }
+          });
+
+        /*
+         * Push notifications are secondary.
+         *
+         * We deliberately do NOT let a push failure
+         * make the order creation fail.
+         */
+
+        const pushResults =
+          await Promise.allSettled(
+            pushPromises,
+          );
+
+        pushResults.forEach(
+          (result) => {
+            if (
+              result.status ===
+              "rejected"
+            ) {
+              console.error(
+                "Push notification failed:",
+                result.reason,
+              );
+            }
+          },
+        );
+      }
     }
+
     /* =====================================================
-       Success
+       SUCCESS
        ===================================================== */
 
     return NextResponse.json({
@@ -524,15 +748,21 @@ const supabase = await createClient(accessToken);
 
       order_id: order.id,
 
-      order_number: order.order_number,
+      order_number:
+        order.order_number,
     });
   } catch (error) {
-    console.error("Create order error:", error);
+    console.error(
+      "Create order error:",
+      error,
+    );
 
     return NextResponse.json(
       {
         error:
-          error instanceof Error ? error.message : "Failed to create order.",
+          error instanceof Error
+            ? error.message
+            : "Failed to create order.",
       },
       { status: 500 },
     );

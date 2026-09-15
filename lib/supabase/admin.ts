@@ -1,7 +1,7 @@
 import { createClient } from "./server";
 
-export async function requireAdmin() {
-  const supabase = await createClient();
+export async function requireAdmin(accessToken?: string) {
+  const supabase = await createClient(accessToken);
 
   const {
     data: { user },
