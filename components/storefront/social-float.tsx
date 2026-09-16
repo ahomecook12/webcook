@@ -46,11 +46,7 @@ export function SocialFloat({ settings }: SocialFloatProps) {
     const templateId = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID;
     const publicKey = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY;
 
-    console.log("EmailJS config:", {
-      serviceId: !!serviceId,
-      templateId: !!templateId,
-      publicKey: !!publicKey,
-    });
+  
 
     if (!serviceId || !templateId || !publicKey) {
       console.error("EmailJS environment variables are missing.");
@@ -67,13 +63,13 @@ export function SocialFloat({ settings }: SocialFloatProps) {
     try {
       const form = event.currentTarget;
 
-      console.log("Sending contact form...");
+     
 
       const response = await emailjs.sendForm(serviceId, templateId, form, {
         publicKey,
       });
 
-      console.log("EmailJS success:", response.status, response.text);
+      
 
       alert("Your message has been sent successfully. Thank you! ❤️");
 

@@ -13,7 +13,9 @@ export async function sendPushNotification({
   body,
   data = {},
 }: SendPushNotificationInput) {
+
   try {
+    
     const messaging = getFirebaseMessaging();
 
     const messageId = await messaging.send({
@@ -34,16 +36,24 @@ export async function sendPushNotification({
       },
     });
 
-    console.log(
-      "✅ Firebase push notification sent:",
-      messageId,
-    );
+   console.log(
+  "✅ Firebase WEB push notification sent:",
+  {
+    messageId,
+    token,
+    title,
+    body,
+  },
+);
 
     return messageId;
   } catch (error) {
     console.error(
       "❌ Firebase push notification failed:",
       error,
+      token,
+    title,
+    body,
     );
 
     throw error;

@@ -4,6 +4,7 @@ import {
   getMessaging,
   getToken,
   isSupported,
+   onMessage,
 } from "firebase/messaging";
 
 import { firebaseApp } from "@/lib/firebase";
@@ -81,6 +82,31 @@ export async function registerWebPushNotifications() {
      */
 
     const messaging = getMessaging(firebaseApp);
+    /*
+ * ---------------------------------------------------------
+ * Foreground Firebase messages
+ * ---------------------------------------------------------
+ */
+
+onMessage(messaging, (payload) => {
+ 
+
+  const title =
+    payload.notification?.title ??
+    "Lucky Charm Creation";
+
+  const body =
+    payload.notification?.body ??
+    "You have a new notification.";
+
+  if (Notification.permission === "granted") {
+    new Notification(title, {
+      body,
+      icon: "/lcc.svg",
+      data: payload.data ?? {},
+    });
+  }
+});
 
     /*
      * IMPORTANT:
@@ -104,9 +130,13 @@ export async function registerWebPushNotifications() {
      * Get Firebase web push token
      * ---------------------------------------------------------
      */
-
+const serviceWorkerRegistration =
+  await navigator.serviceWorker.register(
+    "/api/firebase-messaging-sw",
+  );
     const token = await getToken(messaging, {
       vapidKey,
+       serviceWorkerRegistration,
     });
 
     if (!token) {

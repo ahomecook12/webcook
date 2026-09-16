@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import Image from "next/image";
 
 import { createClient } from "@/lib/supabase/server";
-import SiteHeader from "@/components/storefront/site-header";
 import CheckoutPayment from "@/components/storefront/checkout-payment";
 import CheckoutForm from "@/components/storefront/checkout-form";
 
@@ -40,7 +39,7 @@ export default async function CheckoutPage() {
       supabase.from("storefront_settings").select("*").maybeSingle(),
     ]);
 
-  const isAdmin = profile?.role === "admin";
+  
 
   if (!cart) {
     redirect("/cart");
@@ -103,12 +102,7 @@ export default async function CheckoutPage() {
 
   return (
     <main className="min-h-screen bg-background">
-      <SiteHeader
-        isLoggedIn={true}
-        isAdmin={isAdmin}
-        cartCount={validItems.reduce((total, item) => total + item.quantity, 0)}
-         userId={user.id}
-      />
+    
 
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
         <div className="mb-8">

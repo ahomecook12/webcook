@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { buttonVariants } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import AddToCartButton from "@/components/storefront/add-to-cart-button";
-import SiteHeader from "@/components/storefront/site-header";
 import ProductGallery from "@/components/storefront/product-gallery";
 import type { Metadata } from "next";
 import Image from "next/image";
@@ -144,26 +143,17 @@ export default async function ProductPage({
         : [];
   });
 
-  let isAdmin = false;
+
   let cartCount = 0;
 
   if (user) {
-    const [{ data: profile }, { data: cart }] =
-      await Promise.all([
-        supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .maybeSingle(),
+    const { data: cart } = await supabase
+  .from("carts")
+  .select("id")
+  .eq("user_id", user.id)
+  .maybeSingle();
 
-        supabase
-          .from("carts")
-          .select("id")
-          .eq("user_id", user.id)
-          .maybeSingle(),
-      ]);
-
-    isAdmin = profile?.role === "admin";
+  
 
     if (cart) {
       const { data: cartItems } = await supabase
@@ -224,12 +214,7 @@ export default async function ProductPage({
       data-product-id={product.id}
       data-product-name={product.name}
     >
-      <SiteHeader
-        isLoggedIn={!!user}
-        isAdmin={isAdmin}
-        cartCount={cartCount}
-        userId={user?.id}
-      />
+    
 
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         <Link

@@ -105,7 +105,7 @@ export default function CheckoutForm({
       payment_method: paymentMethod,
     };
 
-    console.log("Submitting checkout data:", data);
+   
 
     setSubmitting(true);
 

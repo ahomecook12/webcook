@@ -2,7 +2,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
-import SiteHeader from "@/components/storefront/site-header";
 
 export const dynamic = "force-dynamic";
 
@@ -17,11 +16,7 @@ export default async function OrdersPage() {
     redirect("/auth/login?redirectTo=/orders");
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
+  
 
   const { data: orders, error } = await supabase
     .from("orders")
@@ -35,16 +30,11 @@ export default async function OrdersPage() {
     throw new Error(error.message);
   }
 
-  const isAdmin = profile?.role === "admin";
+  
 
   return (
     <main className="min-h-screen bg-background">
-      <SiteHeader
-        isLoggedIn={true}
-        isAdmin={isAdmin}
-        cartCount={0}
-         userId={user.id}
-      />
+    
 
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
         <div className="mb-8">

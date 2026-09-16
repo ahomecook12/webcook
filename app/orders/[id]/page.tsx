@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import SiteHeader from "@/components/storefront/site-header";
+
 import OrderStatusHelp from "@/components/storefront/order-status-help";
 import OrderStatusTimeline from "@/components/storefront/order-status-timeline";
 
@@ -16,11 +16,7 @@ export default async function OrderPage({ params }: OrderPageProps) {
   if (!user) {
     redirect(`/auth/login?redirectTo=/orders/${id}`);
   }
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
+ 
   const { data: order, error } = await supabase
     .from("orders")
     .select(
@@ -42,10 +38,10 @@ delivered_at,
   }
   const paymentLabel =
     order.payment_method === "twint" ? "TWINT" : "Bank Transfer";
-  const isAdmin = profile?.role === "admin";
+ 
   return (
     <main className="min-h-screen bg-background">
-      <SiteHeader isLoggedIn={true} isAdmin={isAdmin} cartCount={0} userId={user.id} />
+     
       <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
         <div className="mb-8">
           <Link

@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import ProductBrowser from "./ProductBrowser";
-import SiteHeader from "@/components/storefront/site-header";
+
 
 export default async function ProductsPage({
   searchParams,
@@ -10,17 +10,12 @@ export default async function ProductsPage({
 
   const supabase = await createClient();
 
-  const [
-    {
-      data: { user },
-    },
-    { data: products, error: productsError },
-    { data: categories, error: categoriesError },
-  ] = await Promise.all([
-    supabase.auth.getUser(),
-
-    supabase
-      .from("products")
+ const [
+  { data: products, error: productsError },
+  { data: categories, error: categoriesError },
+] = await Promise.all([
+  supabase
+    .from("products")
       .select(
         `
           id,
@@ -54,30 +49,7 @@ export default async function ProductsPage({
     console.error("Categories loading error:", categoriesError);
   }
 
-  let isAdmin = false;
-  let cartCount = 0;
-
-  if (user) {
-    const [{ data: profile }, { data: cart }] = await Promise.all([
-      supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
-
-      supabase.from("carts").select("id").eq("user_id", user.id).maybeSingle(),
-    ]);
-
-    isAdmin = profile?.role === "admin";
-
-    if (cart) {
-      const { data: cartItems } = await supabase
-        .from("cart_items")
-        .select("quantity")
-        .eq("cart_id", cart.id);
-
-      cartCount = (cartItems ?? []).reduce(
-        (total, item) => total + item.quantity,
-        0,
-      );
-    }
-  }
+ 
 
   const formattedProducts = (products ?? []).map((product) => ({
     id: product.id,
@@ -100,7 +72,7 @@ export default async function ProductsPage({
 
   return (
     <main className="min-h-screen bg-background">
-      <SiteHeader isLoggedIn={!!user} isAdmin={isAdmin} cartCount={cartCount} userId={user?.id} />
+      
 
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         <h1 className="text-3xl font-semibold tracking-tight">Products</h1>

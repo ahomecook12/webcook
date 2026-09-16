@@ -11,7 +11,6 @@ import {
   type CarouselProduct,
 } from "@/components/storefront/product-carousel";
 import { SocialFloat } from "@/components/storefront/social-float";
-import SiteHeader from "@/components/storefront/site-header";
 import { SHOP_NAME } from "./constants";
 import CustomerReviewDrawer from "@/components/storefront/customer-review-drawer";
 
@@ -303,12 +302,7 @@ export default async function Home() {
     <main
       className={`site-theme-${settings.theme} min-h-screen bg-background text-foreground`}
     >
-      <SiteHeader
-        isLoggedIn={!!user}
-        isAdmin={isAdmin}
-        cartCount={cartCount}
-        userId={user?.id}
-      />
+    
       <CustomerReviewDrawer
   images={settings.customer_review_images ?? []}
 />

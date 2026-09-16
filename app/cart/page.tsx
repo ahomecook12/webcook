@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import CartItemControls from "@/components/storefront/cart-item-controls";
-import SiteHeader from "@/components/storefront/site-header";
+
 
 type CartProduct = {
   id: string;
@@ -56,12 +56,7 @@ export default async function CartPage() {
   if (!cart) {
     return (
       <main className="min-h-screen bg-background">
-        <SiteHeader
-          isLoggedIn={true}
-          isAdmin={isAdmin}
-          cartCount={0}
-          userId={user.id}
-        />
+       
 
         <div className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
           <h1 className="text-3xl font-semibold tracking-tight">
@@ -150,12 +145,7 @@ export default async function CartPage() {
 
   return (
     <main className="min-h-screen bg-background">
-      <SiteHeader
-        isLoggedIn={true}
-        isAdmin={isAdmin}
-        cartCount={cartCount}
-        userId={user?.id}
-      />
+     
 
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
         <div className="flex items-center justify-between gap-4">

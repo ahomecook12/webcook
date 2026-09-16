@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import NotificationBell from "@/components/NotificationBell";
 import { SHOP_NAME } from "@/app/constants";
+import { registerWebPushNotifications } from "@/lib/firebase-messaging";
 
 type SiteHeaderProps = {
   isLoggedIn: boolean;
@@ -42,8 +43,16 @@ export default function SiteHeader({
     };
   }, []);
 
+    useEffect(() => {
+    if (!isAdmin || !userId) {
+      return;
+    }
+
+    void registerWebPushNotifications();
+  }, [isAdmin, userId]);
+
   return (
-    <header className="border-b bg-background">
+    <header className="fixed inset-x-0 top-0 z-50 border-b bg-background">
       <div className="mx-auto flex h-16 max-w-full items-center justify-between pr-4">
         {/* LOGO */}
         <Link href="/" className="shrink-0">

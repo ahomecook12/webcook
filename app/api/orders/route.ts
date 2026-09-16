@@ -72,6 +72,7 @@ async function sendExpoPushNotification({
    ========================================================= */
 
 export async function POST(request: Request) {
+ 
   try {
     const authHeader = request.headers.get("authorization");
 
@@ -645,6 +646,8 @@ export async function POST(request: Request) {
           `,
         )
         .in("user_id", adminIds);
+
+       
 
       if (pushTokensError) {
         console.error(
