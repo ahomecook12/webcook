@@ -13,6 +13,7 @@ import {
 import { SocialFloat } from "@/components/storefront/social-float";
 import SiteHeader from "@/components/storefront/site-header";
 import { SHOP_NAME } from "./constants";
+import CustomerReviewDrawer from "@/components/storefront/customer-review-drawer";
 
 type DisplaySettings = {
   price?: boolean;
@@ -35,6 +36,7 @@ type SiteSettings = {
   hero_description: string;
   hero_media: HeroMedia[] | null;
   homepage_category_ids: string[] | null;
+    customer_review_images: string[] | null;
 };
 
 type HomepageStrip = {
@@ -55,6 +57,7 @@ const defaultSettings: SiteSettings = {
     "Discover jewellery, traditional treasures and delicious favourites, thoughtfully brought together for you.",
   hero_media: [],
   homepage_category_ids: [],
+  customer_review_images: [],
 };
 
 export default async function Home() {
@@ -72,7 +75,7 @@ export default async function Home() {
     supabase
       .from("site_settings")
       .select(
-        "theme, hero_title, hero_description, hero_media, homepage_category_ids",
+        "theme, hero_title, hero_description, hero_media, homepage_category_ids, customer_review_images",
       )
       .eq("id", true)
       .maybeSingle(),
@@ -306,6 +309,9 @@ export default async function Home() {
         cartCount={cartCount}
         userId={user?.id}
       />
+      <CustomerReviewDrawer
+  images={settings.customer_review_images ?? []}
+/>
 
       <SocialFloat
   settings={
@@ -319,6 +325,29 @@ export default async function Home() {
       {/* HERO */}
       <section className="relative  bg-muted/40">
         <div className="mx-auto grid max-w-6xl gap-8 px-4 py-16 sm:px-6 md:grid-cols-[1.1fr_0.9fr] md:py-24">
+          
+           {settings.hero_media?.length ? (
+            <div className="relative isolate">
+              {/* Soft decorative glow behind the carousel */}
+              <div className="pointer-events-none absolute -inset-6 rounded-[2rem] bg-primary/50 blur-3xl animate-pulse"/>
+              <div className="relative">
+                <HeroCarousel media={settings.hero_media} />
+              </div>
+            </div>
+          ) : (
+            <Card className="justify-center border-primary/20 bg-primary text-primary-foreground">
+              <CardContent className="p-8 text-center">
+                <p className="text-sm font-medium tracking-[0.2em]">
+                {SHOP_NAME}
+                </p>
+
+                <p className="mt-3 text-2xl font-semibold">
+                  Beauty, tradition & taste
+                </p>
+              </CardContent>
+            </Card>
+          )}
+          
           <div className="max-w-2xl self-center">
             <p className="mb-4 text-sm font-medium tracking-[0.16em] text-primary">
               CURATED WITH LOVE
@@ -340,37 +369,9 @@ export default async function Home() {
             </Link>
           </div>
 
-          {settings.hero_media?.length ? (
-            <div className="relative isolate">
-              {/* Soft decorative glow behind the carousel */}
-              <div
-                className="
-        pointer-events-none
-        absolute -inset-6
-        rounded-[2rem]
-        bg-primary/50
-        blur-3xl
-        animate-pulse
-      "
-              />
+         
 
-              <div className="relative">
-                <HeroCarousel media={settings.hero_media} />
-              </div>
-            </div>
-          ) : (
-            <Card className="justify-center border-primary/20 bg-primary text-primary-foreground">
-              <CardContent className="p-8 text-center">
-                <p className="text-sm font-medium tracking-[0.2em]">
-                {SHOP_NAME}
-                </p>
 
-                <p className="mt-3 text-2xl font-semibold">
-                  Beauty, tradition & taste
-                </p>
-              </CardContent>
-            </Card>
-          )}
         </div>
         {/* Decorative hero-to-products transition */}
         <div className="pointer-events-none absolute bottom-0 left-0 right-0 translate-y-1/2">

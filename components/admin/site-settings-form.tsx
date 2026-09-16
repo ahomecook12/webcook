@@ -24,6 +24,7 @@ export type SiteSettings = {
   hero_description: string;
   hero_media: HeroMedia[] | null;
   homepage_category_ids: string[] | null;
+  customer_review_images: string[] | null;
 };
 export type SocialLink = {
   id: string;
@@ -68,6 +69,7 @@ const defaults: SiteSettings = {
     "Discover jewellery, traditional treasures and delicious favourites, thoughtfully brought together for you.",
   hero_media: [],
   homepage_category_ids: [],
+  customer_review_images: [],
 };
 
 export type HomepageCategory = {
@@ -127,7 +129,10 @@ export function SiteSettingsForm({
   const [media, setMedia] = useState<HeroMedia[]>(
     initial.hero_media ?? [],
   );
-
+const [customerReviewImages, setCustomerReviewImages] =
+  useState<string[]>(
+    initial.customer_review_images ?? [],
+  );
   const [homepageCategoryIds, setHomepageCategoryIds] =
     useState<string[]>(
       settings?.homepage_category_ids ?? [],
@@ -407,7 +412,106 @@ export function SiteSettingsForm({
       setUploading(false);
     }
   }
+async function uploadCustomerReviewImages(
+  event: React.ChangeEvent<HTMLInputElement>,
+) {
+  const files = Array.from(event.target.files ?? []);
 
+  event.target.value = "";
+
+  if (!files.length) return;
+
+  setUploading(true);
+
+  try {
+    const uploaded = await Promise.all(
+      files.map(async (file) => {
+        const body = new FormData();
+
+        body.append("file", file);
+        body.append("folder", "reviews");
+
+        const response = await fetch("/api/upload", {
+          method: "POST",
+          body,
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.error || "Review image upload failed.",
+          );
+        }
+
+        return data.url as string;
+      }),
+    );
+
+    setCustomerReviewImages((current) => [
+      ...current,
+      ...uploaded,
+    ]);
+  } catch (error) {
+    alert(
+      error instanceof Error
+        ? error.message
+        : "Review image upload failed.",
+    );
+  } finally {
+    setUploading(false);
+  }
+}
+async function removeCustomerReviewImage(index: number) {
+  const url = customerReviewImages[index];
+
+  if (!url) return;
+
+  const confirmed = window.confirm(
+    "Are you sure you want to remove this customer review image?",
+  );
+
+  if (!confirmed) return;
+
+  try {
+    const response = await fetch(
+      "/api/admin/cloudinary/delete",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          url,
+        }),
+      },
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.error ||
+          "Failed to remove customer review image.",
+      );
+    }
+
+    setCustomerReviewImages((current) =>
+      current.filter((_, imageIndex) => imageIndex !== index),
+    );
+  } catch (error) {
+    console.error(
+      "Customer review image removal error:",
+      error,
+    );
+
+    alert(
+      error instanceof Error
+        ? error.message
+        : "Failed to remove customer review image.",
+    );
+  }
+}
   /*
    * ---------------------------------------------------------
    * SAVE EVERYTHING
@@ -443,8 +547,8 @@ export function SiteSettingsForm({
               hero_title: title.trim(),
               hero_description: description.trim(),
               hero_media: media,
-              homepage_category_ids:
-                homepageCategoryIds,
+              homepage_category_ids: homepageCategoryIds,
+              customer_review_images: customerReviewImages,
             },
             {
               onConflict: "id",
@@ -675,7 +779,7 @@ export function SiteSettingsForm({
 
             <div className="space-y-2">
               <Label htmlFor="hero-upload">
-                Upload images or videos
+                Upload images or videos (Max 4.5 MB each)
               </Label>
 
               <Input
@@ -1005,7 +1109,86 @@ export function SiteSettingsForm({
           </CardContent>
         </Card>
 
-  
+  {/* =====================================================
+    CUSTOMER REVIEWS
+====================================================== */}
+
+<Card>
+  <CardHeader>
+    <CardTitle>
+      Customer Review Images
+    </CardTitle>
+
+    <p className="text-sm text-muted-foreground">
+      Upload screenshots or images of customer reviews.
+      These will appear in a sliding gallery on the
+      homepage.
+    </p>
+  </CardHeader>
+
+  <CardContent className="space-y-4">
+
+    <div className="space-y-2">
+      <Label htmlFor="customer-review-upload">
+        Upload review images
+      </Label>
+
+      <Input
+        id="customer-review-upload"
+        type="file"
+        accept="image/*"
+        multiple
+        onChange={uploadCustomerReviewImages}
+        disabled={uploading}
+      />
+
+      <p className="text-xs text-muted-foreground">
+        {uploading
+          ? "Uploading to Cloudinary..."
+          : "You can upload multiple customer review images."}
+      </p>
+    </div>
+
+    {customerReviewImages.length > 0 && (
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {customerReviewImages.map((url, index) => (
+          <div
+            key={`${url}-${index}`}
+            className="relative overflow-hidden rounded-lg border"
+          >
+            <Image
+              src={url}
+              alt={`Customer review ${index + 1}`}
+              width={300}
+              height={300}
+              unoptimized
+              className="aspect-square w-full object-cover"
+            />
+
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              onClick={() =>
+                removeCustomerReviewImage(index)
+              }
+              className="absolute right-2 top-2"
+            >
+              Remove
+            </Button>
+          </div>
+        ))}
+      </div>
+    )}
+
+    {customerReviewImages.length === 0 && (
+      <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+        No customer review images uploaded yet.
+      </p>
+    )}
+
+  </CardContent>
+</Card>
         {/* =====================================================
             SOCIAL MEDIA
         ====================================================== */}

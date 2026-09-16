@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import cloudinary from "@/lib/cloudinary";
 import { requireAdmin } from "@/lib/supabase/admin";
 
+const MAX_FILE_SIZE = 4.5 * 1024 * 1024; // 4.5 MiB
+
 export async function POST(request: Request) {
   try {
     // -------------------------------------------------------
@@ -49,6 +51,31 @@ export async function POST(request: Request) {
       );
     }
 
+    // -------------------------------------------------------
+    // FILE SIZE CHECK
+    // -------------------------------------------------------
+
+    if (file.size > MAX_FILE_SIZE) {
+      const sizeInMB = (
+        file.size /
+        (1024 * 1024)
+      ).toFixed(2);
+
+      return NextResponse.json(
+        {
+          error: `File is too large (${sizeInMB} MB). Maximum allowed size is 4.5 MB.`,
+          code: "FILE_TOO_LARGE",
+          maxSizeMB: 4.5,
+          actualSizeMB: Number(sizeInMB),
+        },
+        { status: 413 },
+      );
+    }
+
+    // -------------------------------------------------------
+    // FILE TYPE
+    // -------------------------------------------------------
+
     if (
       !file.type.startsWith("image/") &&
       !file.type.startsWith("video/")
@@ -56,14 +83,14 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            "Only image and video files can be uploaded",
+            "Only image and video files can be uploaded.",
         },
         { status: 400 },
       );
     }
 
     // -------------------------------------------------------
-    // Validate folder
+    // VALIDATE FOLDER
     // -------------------------------------------------------
 
     if (
@@ -71,7 +98,8 @@ export async function POST(request: Request) {
       folder !== "hero" &&
       folder !== "category" &&
       folder !== "products" &&
-      folder !== "social"
+      folder !== "social" &&
+folder !== "reviews"
     ) {
       return NextResponse.json(
         { error: "Invalid upload folder" },
@@ -80,7 +108,7 @@ export async function POST(request: Request) {
     }
 
     // -------------------------------------------------------
-    // Upload to Cloudinary
+    // UPLOAD TO CLOUDINARY
     // -------------------------------------------------------
 
     const bytes = await file.arrayBuffer();
@@ -100,7 +128,9 @@ export async function POST(request: Request) {
                   ? "shop/categories"
                   : folder === "social"
                     ? "shop/social"
-                    : "shop/products",
+                    : folder === "reviews"
+                      ? "shop/reviews"
+                      : "shop/products",
 
             resource_type: file.type.startsWith("video/")
               ? "video"
@@ -116,7 +146,9 @@ export async function POST(request: Request) {
               });
             } else {
               reject(
-                new Error("Cloudinary returned no result"),
+                new Error(
+                  "Cloudinary returned no result",
+                ),
               );
             }
           },
@@ -125,7 +157,7 @@ export async function POST(request: Request) {
     });
 
     // -------------------------------------------------------
-    // Return Cloudinary information
+    // SUCCESS
     // -------------------------------------------------------
 
     return NextResponse.json({

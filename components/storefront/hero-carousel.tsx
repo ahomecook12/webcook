@@ -51,7 +51,7 @@ export function HeroCarousel({ media }: { media: HeroMedia[] }) {
   if (!item) return null;
 
   return (
-    <div className="relative aspect-[5/4] overflow-hidden rounded-xl bg-muted shadow-lg">
+    <div className="relative aspect-[5/6] overflow-hidden rounded-xl bg-muted shadow-lg">
       {item.type === "video" ? (
         <video
           key={item.url}

@@ -6,6 +6,7 @@ import AddToCartButton from "@/components/storefront/add-to-cart-button";
 import SiteHeader from "@/components/storefront/site-header";
 import ProductGallery from "@/components/storefront/product-gallery";
 import type { Metadata } from "next";
+import Image from "next/image";
 import { SHOP_NAME } from "@/app/constants";
 
 type DisplaySettings = {
@@ -22,6 +23,7 @@ type Category = {
   id: string;
   name: string;
   slug: string;
+  image_url: string | null;
 };
 
 const shown = (
@@ -128,7 +130,7 @@ export default async function ProductPage({
 
   const { data: categoryLinks } = await supabase
     .from("product_categories")
-    .select("categories(id, name, slug)")
+    .select("categories(id, name, slug, image_url)")
     .eq("product_id", id);
 
   const categories = (categoryLinks ?? []).flatMap((link) => {
@@ -267,21 +269,33 @@ export default async function ProductPage({
               {product.name}
             </h1>
 
-            {categories.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {categories.map((category) => (
-                  <Link
-                    key={category.id}
-                    href={`/products?category=${encodeURIComponent(
-                      category.slug,
-                    )}`}
-                    className="rounded-full bg-secondary px-3 py-1 text-sm text-secondary-foreground hover:bg-secondary/80"
-                  >
-                    {category.name}
-                  </Link>
-                ))}
-              </div>
-            )}
+            
+{categories.length > 0 && (
+  <div className="mt-3 flex flex-wrap gap-2">
+    {categories.map((category) => (
+      <Link
+        key={category.id}
+        href={`/products?category=${encodeURIComponent(
+          category.slug,
+        )}`}
+        className="inline-flex items-center gap-2 rounded-full bg-secondary px-2 py-1 text-sm text-secondary-foreground hover:bg-secondary/80"
+      >
+        {category.image_url ? (
+          <Image
+            src={category.image_url}
+            alt=""
+            width={28}
+            height={28}
+            className="h-7 w-7 rounded-full object-cover"
+          />
+        ) : null}
+
+        <span className="pr-1">{category.name}</span>
+      </Link>
+    ))}
+  </div>
+)}
+
 
             {shown(settings, "price") && (
               <p className="mt-3 text-xl font-medium">

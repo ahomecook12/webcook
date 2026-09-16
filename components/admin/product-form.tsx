@@ -423,17 +423,32 @@ export function ProductForm({
         </p>
       </div>
       <div className="space-y-4">
-          <Card>
+        <Card>
           <CardHeader className="pb-4">
             <CardTitle className="text-lg">Product Images</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Input
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={selectImages}
-            />
+            <div>
+              <label
+                htmlFor="product-images"
+                className="inline-flex cursor-pointer items-center rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted"
+              >
+                📷 Choose images
+              </label>
+
+              <input
+                id="product-images"
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={selectImages}
+                className="hidden"
+              />
+
+              <p className="mt-2 text-sm text-muted-foreground">
+                Select one or more product images each max 4.5 MB.
+              </p>
+            </div>
 
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <Button
@@ -513,14 +528,15 @@ export function ProductForm({
               placeholder="e.g. Pearl Jhumka Earrings"
             />
             <TextField
-  id="sticker"
-  label="Sticker"
-  value={sticker}
-  onChange={setSticker}
-  placeholder="e.g. NEW, BESTSELLER, LIMITED"
-/><p className="-mt-2 text-xs text-muted-foreground">
-  Optional. This sticker will appear on the product card.
-</p>
+              id="sticker"
+              label="Sticker"
+              value={sticker}
+              onChange={setSticker}
+              placeholder="e.g. NEW, BESTSELLER, LIMITED"
+            />
+            <p className="-mt-2 text-xs text-muted-foreground">
+              Optional. This sticker will appear on the product card.
+            </p>
             <TextField
               id="size"
               label="Size"
@@ -667,7 +683,7 @@ export function ProductForm({
             </div>
           </CardContent>
         </Card>
-      
+
         <Card>
           <CardHeader className="pb-4">
             <CardTitle className="text-lg">Product Videos</CardTitle>
