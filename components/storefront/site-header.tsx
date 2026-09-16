@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import NotificationBell from "@/components/NotificationBell";
+import { SHOP_NAME } from "@/app/constants";
 
 type SiteHeaderProps = {
   isLoggedIn: boolean;
@@ -48,7 +49,7 @@ export default function SiteHeader({
         <Link href="/" className="shrink-0">
           <Image
             src="/lcc.svg"
-            alt="Lucky Charm Creations"
+            alt={SHOP_NAME}
             width={103}
             height={64}
             priority

@@ -9,6 +9,7 @@ import {
   Share2,
   X,
 } from "lucide-react";
+import { SHOP_NAME } from "@/app/constants";
 
 type ProductShareProps = {
   productId: string;
@@ -50,8 +51,8 @@ export default function ProductShare({
   const isVideo = Boolean(videoUrl);
 
   const shareText = isVideo
-    ? `Check out this video of ${productName} at Lucky Charm Creations 🛍️`
-    : `Check out ${productName} at Lucky Charm Creations 🛍️`;
+    ? `Check out this video of ${productName} at ${SHOP_NAME} 🛍️`
+    : `Check out ${productName} at ${SHOP_NAME} 🛍️`;
 
   async function copyLink() {
     try {

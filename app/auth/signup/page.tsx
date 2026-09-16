@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
+import { SHOP_NAME } from "@/app/constants";
 
 export default function SignupPage() {
   const supabase = createClient();
@@ -64,7 +65,7 @@ export default function SignupPage() {
           </h1>
 
           <p className="mt-3 text-sm text-[#756f65]">
-            Join Lucky Charm Creations
+            Join {SHOP_NAME} and start shopping today!
           </p>
         </div>
 

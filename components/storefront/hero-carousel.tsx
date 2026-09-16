@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { SHOP_NAME } from "@/app/constants";
 
 export type HeroMedia = {
   url: string;
@@ -66,7 +67,7 @@ export function HeroCarousel({ media }: { media: HeroMedia[] }) {
         <Image
           key={item.url}
           src={item.url}
-          alt={`Lucky Charm Creations feature ${safeActive + 1}`}
+          alt={`${SHOP_NAME} feature ${safeActive + 1}`}
           width={1000}
           height={800}
           unoptimized

@@ -6,6 +6,7 @@ import AddToCartButton from "@/components/storefront/add-to-cart-button";
 import SiteHeader from "@/components/storefront/site-header";
 import ProductGallery from "@/components/storefront/product-gallery";
 import type { Metadata } from "next";
+import { SHOP_NAME } from "@/app/constants";
 
 type DisplaySettings = {
   price?: boolean;
@@ -46,7 +47,7 @@ export async function generateMetadata({
 
   if (!product) {
     return {
-      title: "Product | Lucky Charm Creations",
+      title: `Product | ${SHOP_NAME}`,
     };
   }
 
@@ -55,18 +56,18 @@ export async function generateMetadata({
   const image = images[0] ?? null;
 
   return {
-    title: `${product.name} | Lucky Charm Creations`,
+    title: `${product.name} | ${SHOP_NAME}`,
 
     description:
       product.description ||
-      `Discover ${product.name} at Lucky Charm Creations.`,
+      `Discover ${product.name} at ${SHOP_NAME}.`,
 
     openGraph: {
-      title: `${product.name} | Lucky Charm Creations`,
+      title: `${product.name} | ${SHOP_NAME}`,
 
       description:
         product.description ||
-        `Discover ${product.name} at Lucky Charm Creations.`,
+        `Discover ${product.name} at ${SHOP_NAME}.`,
 
       type: "website",
 
@@ -85,11 +86,11 @@ export async function generateMetadata({
     twitter: {
       card: "summary_large_image",
 
-      title: `${product.name} | Lucky Charm Creations`,
+      title: `${product.name} | ${SHOP_NAME}`,
 
       description:
         product.description ||
-        `Discover ${product.name} at Lucky Charm Creations.`,
+        `Discover ${product.name} at ${SHOP_NAME}.`,
 
       images: image ? [image] : [],
     },
