@@ -49,10 +49,7 @@ export async function sendPushNotification({
       errorCode ===
       "messaging/registration-token-not-registered"
     ) {
-      console.log(
-        "🧹 Removing invalid Firebase web push token from database:",
-        token,
-      );
+      
 
       const supabase = createServiceRoleClient();
 

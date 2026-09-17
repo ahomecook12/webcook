@@ -11,7 +11,9 @@ import { firebaseApp } from "@/lib/firebase";
 import { createClient } from "@/lib/supabase/client";
 import { SHOP_NAME } from "@/app/constants";
 
-export async function registerWebPushNotifications() {
+export async function registerWebPushNotifications(
+  navigateToAdminOrders?: () => void,
+) {
   try {
     /*
      * ---------------------------------------------------------
@@ -22,9 +24,7 @@ export async function registerWebPushNotifications() {
     const supported = await isSupported();
 
     if (!supported) {
-      console.log(
-        "Firebase web push notifications are not supported in this browser.",
-      );
+      
 
       return null;
     }
@@ -39,9 +39,7 @@ export async function registerWebPushNotifications() {
       await Notification.requestPermission();
 
     if (permission !== "granted") {
-      console.log(
-        "Web notification permission was not granted.",
-      );
+      
 
       return null;
     }
@@ -69,9 +67,7 @@ export async function registerWebPushNotifications() {
     }
 
     if (!user) {
-      console.log(
-        "No logged-in user. Web push token will not be saved.",
-      );
+     
 
       return null;
     }
@@ -90,24 +86,28 @@ export async function registerWebPushNotifications() {
  */
 
 onMessage(messaging, (payload) => {
- 
-
- const title =
-  payload.notification?.title ??
-  SHOP_NAME;
+  const title =
+    payload.notification?.title ??
+    SHOP_NAME;
 
   const body =
     payload.notification?.body ??
     "You have a new notification.";
 
   if (Notification.permission === "granted") {
-    new Notification(title, {
+    const notification = new Notification(title, {
       body,
       icon: "/lcc.svg",
       data: payload.data ?? {},
     });
+
+   notification.onclick = () => {
+  window.focus();
+  navigateToAdminOrders?.();
+};
   }
 });
+
 
     /*
      * IMPORTANT:
@@ -141,17 +141,12 @@ const serviceWorkerRegistration =
     });
 
     if (!token) {
-      console.log(
-        "Firebase did not return a web push token.",
-      );
+     
 
       return null;
     }
 
-    console.log(
-      "Firebase web push token:",
-      token,
-    );
+    
 
     /*
      * ---------------------------------------------------------
@@ -188,9 +183,7 @@ const serviceWorkerRegistration =
       return null;
     }
 
-    console.log(
-      "✅ Web push token saved to Supabase.",
-    );
+  
 
     return token;
   } catch (error) {

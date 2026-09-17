@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { buttonVariants } from "@/components/ui/button";
 import Image from "next/image";
 import { Menu, ChevronDown } from "lucide-react";
@@ -29,7 +30,7 @@ export default function SiteHeader({
   userId,
 }: SiteHeaderProps) {
   const [displayCartCount, setDisplayCartCount] = useState(cartCount);
-
+const router = useRouter();
   useEffect(() => {
     function handleCartCountChange(event: Event) {
       const customEvent = event as CustomEvent<{ count: number }>;
@@ -49,13 +50,15 @@ export default function SiteHeader({
     };
   }, []);
 
-  useEffect(() => {
-    if (!isAdmin || !userId) {
-      return;
-    }
+ useEffect(() => {
+  if (!isAdmin || !userId) {
+    return;
+  }
 
-    void registerWebPushNotifications();
-  }, [isAdmin, userId]);
+  void registerWebPushNotifications(() => {
+    router.push("/admin/orders");
+  });
+}, [isAdmin, userId, router]);
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b bg-background">

@@ -131,7 +131,7 @@ export default function ProductGallery({
                 <button
                   type="button"
                   onClick={() => setSelectedImage(image)}
-                  className="block aspect-square w-full cursor-zoom-in"
+                  className="relative block aspect-square w-full cursor-zoom-in"
                   aria-label={`View ${productName} image ${index + 1}`}
                 >
                   <Image
