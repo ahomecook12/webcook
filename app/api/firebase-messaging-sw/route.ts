@@ -31,18 +31,50 @@ messaging.onBackgroundMessage((payload) => {
   );
 
   const title =
-    payload.notification?.title ??
-    ${JSON.stringify(SHOP_NAME)};
+  payload.data?.title ??
+  ${JSON.stringify(SHOP_NAME)};
 
   const options = {
     body:
-      payload.notification?.body ??
+      payload.data?.body ??
       "You have a new notification.",
     icon: "/lcc.svg",
-    data: payload.data ?? {},
+    data: {
+      ...(payload.data ?? {}),
+      url: "/admin/orders",
+    },
   };
 
   self.registration.showNotification(title, options);
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+
+  event.waitUntil(
+    (async () => {
+      const targetUrl = new URL(
+        event.notification.data?.url ?? "/admin/orders",
+        self.location.origin
+      ).href;
+
+      const clientList = await clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      });
+
+      for (const client of clientList) {
+        if ("navigate" in client && "focus" in client) {
+          await client.navigate(targetUrl);
+          return client.focus();
+        }
+      }
+
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
+    })()
+  );
 });
 `;
 

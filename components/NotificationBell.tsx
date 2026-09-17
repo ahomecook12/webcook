@@ -71,6 +71,15 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
 
     void loadNotifications();
 
+    function handleOrderCompleted() {
+  void loadNotifications();
+}
+
+window.addEventListener(
+  "order-completed",
+  handleOrderCompleted,
+);
+
     /* =========================================================
      REALTIME — Listen for new notifications
      ========================================================= */
@@ -114,7 +123,10 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
 
     return () => {
       cancelled = true;
-
+window.removeEventListener(
+  "order-completed",
+  handleOrderCompleted,
+);
       void supabase.removeChannel(channel);
     };
   }, [userId]);

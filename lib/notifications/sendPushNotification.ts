@@ -1,4 +1,5 @@
 import { getFirebaseMessaging } from "@/lib/firebase-admin";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
 type SendPushNotificationInput = {
   token: string;
@@ -13,20 +14,17 @@ export async function sendPushNotification({
   body,
   data = {},
 }: SendPushNotificationInput) {
-
   try {
-    
     const messaging = getFirebaseMessaging();
 
     const messageId = await messaging.send({
       token,
 
-      notification: {
+      data: {
+        ...data,
         title,
         body,
       },
-
-      data,
 
       android: {
         priority: "high",
@@ -36,24 +34,56 @@ export async function sendPushNotification({
       },
     });
 
-   console.log(
-  "✅ Firebase WEB push notification sent:",
-  {
-    messageId,
-    token,
-    title,
-    body,
-  },
-);
+    
 
     return messageId;
-  } catch (error) {
+  } catch (error: unknown) {
+    const errorCode = (error as { code?: string })?.code;
+
+    /*
+     * Firebase permanently invalidated this registration token.
+     *
+     * Remove only this exact token from our database.
+     */
+    if (
+      errorCode ===
+      "messaging/registration-token-not-registered"
+    ) {
+      console.log(
+        "🧹 Removing invalid Firebase web push token from database:",
+        token,
+      );
+
+      const supabase = createServiceRoleClient();
+
+      const { error: deleteError } = await supabase
+        .from("push_tokens")
+        .delete()
+        .eq("web_push_token", token);
+
+      if (deleteError) {
+        console.error(
+          "❌ Failed to remove invalid Firebase token:",
+          deleteError,
+        );
+      } 
+
+      /*
+       * This token is dead, but this is NOT an order-creation failure.
+       * Do not throw the error.
+       */
+      return null;
+    }
+
+    /*
+     * Other Firebase errors are still real errors.
+     * Keep the existing behaviour for those.
+     */
     console.error(
       "❌ Firebase push notification failed:",
       error,
-      token,
-    title,
-    body,
+      title,
+      body,
     );
 
     throw error;
