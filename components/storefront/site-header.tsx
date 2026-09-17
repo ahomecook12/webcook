@@ -36,14 +36,20 @@ export default function SiteHeader({
       setDisplayCartCount(customEvent.detail.count);
     }
 
+    function handleOrderCompleted() {
+      setDisplayCartCount(0);
+    }
+
     window.addEventListener("cart-count-change", handleCartCountChange);
+    window.addEventListener("order-completed", handleOrderCompleted);
 
     return () => {
       window.removeEventListener("cart-count-change", handleCartCountChange);
+      window.removeEventListener("order-completed", handleOrderCompleted);
     };
   }, []);
 
-    useEffect(() => {
+  useEffect(() => {
     if (!isAdmin || !userId) {
       return;
     }

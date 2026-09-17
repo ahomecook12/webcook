@@ -126,13 +126,20 @@ export default function CheckoutForm({
         );
       }
 
+      router.refresh();
+      window.dispatchEvent(
+  new CustomEvent("cart-count-change", {
+    detail: { count: 0 },
+  }),
+);
+window.dispatchEvent(new Event("order-completed"));
       router.push(
         `/order-success?order=${encodeURIComponent(
           result.order_number,
         )}`,
       );
 
-      router.refresh();
+      
     } catch (error) {
       alert(
         error instanceof Error

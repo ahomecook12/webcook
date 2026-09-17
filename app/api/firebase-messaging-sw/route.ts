@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { SHOP_NAME } from "@/app/constants";
 
 export async function GET() {
   const firebaseConfig = {
@@ -31,7 +32,7 @@ messaging.onBackgroundMessage((payload) => {
 
   const title =
     payload.notification?.title ??
-    "Lucky Charm Creation";
+    ${JSON.stringify(SHOP_NAME)};
 
   const options = {
     body:

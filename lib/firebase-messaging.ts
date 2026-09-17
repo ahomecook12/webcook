@@ -9,6 +9,7 @@ import {
 
 import { firebaseApp } from "@/lib/firebase";
 import { createClient } from "@/lib/supabase/client";
+import { SHOP_NAME } from "@/app/constants";
 
 export async function registerWebPushNotifications() {
   try {
@@ -91,9 +92,9 @@ export async function registerWebPushNotifications() {
 onMessage(messaging, (payload) => {
  
 
-  const title =
-    payload.notification?.title ??
-    "Lucky Charm Creation";
+ const title =
+  payload.notification?.title ??
+  SHOP_NAME;
 
   const body =
     payload.notification?.body ??
