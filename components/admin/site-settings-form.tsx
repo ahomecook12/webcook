@@ -605,7 +605,7 @@ export function SiteSettingsForm({
    */
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8">
+    <main className="mx-auto max-w-5xl px-4 py-8">
       <div className="mb-6">
         <h1 className="text-3xl font-bold">Storefront settings</h1>
 
@@ -731,11 +731,11 @@ export function SiteSettingsForm({
             </div>
 
             {media.length > 0 && (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <div className="flex gap-3 overflow-x-auto pb-2">
                 {media.map((item, index) => (
                   <div
                     key={`${item.url}-${index}`}
-                    className="relative overflow-hidden rounded-lg border"
+                    className="relative w-48 shrink-0 overflow-hidden rounded-lg border"
                   >
                     {item.type === "video" ? (
                       <video
@@ -756,7 +756,7 @@ export function SiteSettingsForm({
 
                     <Button
                       type="button"
-                      variant="destructive"
+                      variant="outline"
                       size="sm"
                       onClick={() => removeHeroMedia(index)}
                       className="absolute right-2 top-2"
@@ -996,32 +996,36 @@ export function SiteSettingsForm({
             </div>
 
             {customerReviewImages.length > 0 && (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {customerReviewImages.map((url, index) => (
-                  <div
-                    key={`${url}-${index}`}
-                    className="relative overflow-hidden rounded-lg border"
-                  >
-                    <Image
-                      src={url}
-                      alt={`Customer review ${index + 1}`}
-                      width={300}
-                      height={300}
-                      unoptimized
-                      className="aspect-square w-full object-cover"
-                    />
+              <div className="flex gap-3 overflow-x-auto pb-2">
+                {customerReviewImages.length > 0 && (
+                  <div className="flex gap-3 overflow-x-auto pb-2">
+                    {customerReviewImages.map((url, index) => (
+                      <div
+                        key={`${url}-${index}`}
+                        className="relative w-48 shrink-0 overflow-hidden rounded-lg border"
+                      >
+                        <Image
+                          src={url}
+                          alt={`Customer review ${index + 1}`}
+                          width={300}
+                          height={300}
+                          unoptimized
+                          className="aspect-square w-full object-cover"
+                        />
 
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => removeCustomerReviewImage(index)}
-                      className="absolute right-2 top-2"
-                    >
-                      Remove
-                    </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => removeCustomerReviewImage(index)}
+                          className="absolute right-2 top-2"
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
             )}
 
@@ -1035,6 +1039,10 @@ export function SiteSettingsForm({
         {/* =====================================================
             SOCIAL MEDIA
         ====================================================== */}
+
+        {/* =====================================================
+    SOCIAL MEDIA
+====================================================== */}
 
         <Card>
           <CardHeader>
@@ -1063,107 +1071,122 @@ export function SiteSettingsForm({
               <div className="space-y-4">
                 {/* SOCIAL LINKS */}
 
-                {socialLinks.map((link, index) => (
-                  <div key={link.id} className="rounded-xl border p-4">
-                    <div className="mb-4 flex items-center justify-between">
-                      <span className="text-sm font-medium">
-                        Social link {index + 1}
-                      </span>
-
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeSocialLink(link.id)}
+                {socialLinks.length > 0 && (
+                  <div className="flex gap-4 overflow-x-auto pb-3">
+                    {socialLinks.map((link, index) => (
+                      <div
+                        key={link.id}
+                        className="w-[320px] shrink-0 rounded-xl border p-4"
                       >
-                        Remove
-                      </Button>
-                    </div>
+                        <div className="mb-4 flex items-center justify-between">
+                          <span className="text-sm font-medium">
+                            Social link {index + 1}
+                          </span>
 
-                    <div className="space-y-4">
-                      {/* NAME */}
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeSocialLink(link.id)}
+                          >
+                            Remove
+                          </Button>
+                        </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor={`social-name-${link.id}`}>Name</Label>
+                        <div className="space-y-4">
+                          {/* NAME */}
 
-                        <Input
-                          id={`social-name-${link.id}`}
-                          value={link.name}
-                          onChange={(event) =>
-                            updateSocialLink(
-                              link.id,
-                              "name",
-                              event.target.value,
-                            )
-                          }
-                          placeholder="Instagram"
-                        />
-                      </div>
+                          <div className="space-y-2">
+                            <Label htmlFor={`social-name-${link.id}`}>
+                              Name
+                            </Label>
 
-                      {/* URL */}
-
-                      <div className="space-y-2">
-                        <Label htmlFor={`social-url-${link.id}`}>Link</Label>
-
-                        <Input
-                          id={`social-url-${link.id}`}
-                          type="url"
-                          value={link.url}
-                          onChange={(event) =>
-                            updateSocialLink(link.id, "url", event.target.value)
-                          }
-                          placeholder="https://..."
-                        />
-                      </div>
-
-                      {/* ICON */}
-
-                      <div className="space-y-2">
-                        <Label>Icon</Label>
-
-                        <div className="flex items-center gap-4">
-                          {/* CURRENT ICON */}
-
-                          {link.icon_url ? (
-                            <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full border">
-                              <Image
-                                src={link.icon_url}
-                                alt={link.name || "Social icon"}
-                                fill
-                                unoptimized
-                                className="object-cover"
-                              />
-                            </div>
-                          ) : (
-                            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border text-xs text-muted-foreground">
-                              No icon
-                            </div>
-                          )}
-
-                          {/* UPLOAD */}
-
-                          <div className="space-y-1">
                             <Input
-                              id={`social-icon-${link.id}`}
-                              type="file"
-                              accept="image/*"
+                              id={`social-name-${link.id}`}
+                              value={link.name}
                               onChange={(event) =>
-                                uploadSocialIcon(event, link.id)
+                                updateSocialLink(
+                                  link.id,
+                                  "name",
+                                  event.target.value,
+                                )
                               }
-                              disabled={uploading}
+                              placeholder="Instagram"
                             />
+                          </div>
 
-                            <p className="text-xs text-muted-foreground">
-                              {uploading
-                                ? "Uploading..."
-                                : "Upload an icon image."}
-                            </p>
+                          {/* URL */}
+
+                          <div className="space-y-2">
+                            <Label htmlFor={`social-url-${link.id}`}>
+                              Link
+                            </Label>
+
+                            <Input
+                              id={`social-url-${link.id}`}
+                              type="url"
+                              value={link.url}
+                              onChange={(event) =>
+                                updateSocialLink(
+                                  link.id,
+                                  "url",
+                                  event.target.value,
+                                )
+                              }
+                              placeholder="https://..."
+                            />
+                          </div>
+
+                          {/* ICON */}
+
+                          <div className="space-y-2">
+                            <Label>Icon</Label>
+
+                            <div className="flex items-center gap-4">
+                              {/* CURRENT ICON */}
+
+                              {link.icon_url ? (
+                                <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full border">
+                                  <Image
+                                    src={link.icon_url}
+                                    alt={link.name || "Social icon"}
+                                    fill
+                                    unoptimized
+                                    className="object-cover"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border text-xs text-muted-foreground">
+                                  No icon
+                                </div>
+                              )}
+
+                              {/* UPLOAD */}
+
+                              <div className="min-w-0 flex-1 space-y-1">
+                                <Input
+                                  id={`social-icon-${link.id}`}
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(event) =>
+                                    uploadSocialIcon(event, link.id)
+                                  }
+                                  disabled={uploading}
+                                />
+
+                                <p className="text-xs text-muted-foreground">
+                                  {uploading
+                                    ? "Uploading..."
+                                    : "Upload an icon image."}
+                                </p>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
+                    ))}
                   </div>
-                ))}
+                )}
 
                 {/* ADD BUTTON */}
 
