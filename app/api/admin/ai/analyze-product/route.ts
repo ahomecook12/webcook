@@ -1,4 +1,3 @@
-
 import { NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
 
@@ -9,7 +8,82 @@ const MODEL = "gemini-3.5-flash-lite";
 
 export async function POST(request: Request) {
   try {
-    const { isAdmin } = await requireAdmin();
+    // -------------------------------------------------------
+    // AUTHENTICATION
+    //
+    // Web shop:
+    //   Uses the normal Supabase cookie session.
+    //
+    // Mobile app:
+    //   Uses Authorization: Bearer <access_token>.
+    // -------------------------------------------------------
+
+    const authorization = request.headers.get("authorization");
+
+    let isAdmin = false;
+
+    if (authorization?.startsWith("Bearer ")) {
+      // -----------------------------------------------------
+      // MOBILE AUTH
+      // -----------------------------------------------------
+
+      const accessToken = authorization.slice("Bearer ".length).trim();
+
+      if (!accessToken) {
+        return NextResponse.json(
+          { error: "Unauthorized." },
+          { status: 401 },
+        );
+      }
+
+      const supabase = createServiceRoleClient();
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser(accessToken);
+
+      if (userError || !user) {
+        console.error(
+          "Mobile AI authentication failed:",
+          userError,
+        );
+
+        return NextResponse.json(
+          { error: "Unauthorized." },
+          { status: 401 },
+        );
+      }
+
+      const { data: profile, error: profileError } =
+        await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .maybeSingle();
+
+      if (profileError) {
+        console.error(
+          "Admin profile lookup failed:",
+          profileError,
+        );
+
+        return NextResponse.json(
+          { error: "Unauthorized." },
+          { status: 401 },
+        );
+      }
+
+      isAdmin = profile?.role === "admin";
+    } else {
+      // -----------------------------------------------------
+      // WEB SHOP AUTH
+      // -----------------------------------------------------
+
+      const adminCheck = await requireAdmin();
+
+      isAdmin = adminCheck.isAdmin;
+    }
 
     if (!isAdmin) {
       return NextResponse.json(
@@ -17,6 +91,10 @@ export async function POST(request: Request) {
         { status: 401 },
       );
     }
+
+    // -------------------------------------------------------
+    // GEMINI CONFIGURATION
+    // -------------------------------------------------------
 
     const apiKey = process.env.GEMINI_API_KEY;
 
@@ -30,20 +108,20 @@ export async function POST(request: Request) {
       );
     }
 
-    /*
-     * Check and consume our own daily AI allowance BEFORE
-     * contacting Gemini.
-     *
-     * This guarantees that once our limit is reached,
-     * no further Gemini request is made.
-     */
+    // -------------------------------------------------------
+    // DAILY AI ALLOWANCE
+    // -------------------------------------------------------
+
     const supabase = createServiceRoleClient();
 
     const { data: allowed, error: usageError } =
       await supabase.rpc("consume_ai_analysis");
 
     if (usageError) {
-      console.error("AI usage check failed:", usageError);
+      console.error(
+        "AI usage check failed:",
+        usageError,
+      );
 
       return NextResponse.json(
         {
@@ -65,42 +143,113 @@ export async function POST(request: Request) {
       );
     }
 
-    const formData = await request.formData();
-    const file = formData.get("image");
+    // -------------------------------------------------------
+    // READ IMAGE
+    //
+    // Web sends FormData.
+    // Mobile sends JSON with base64 image.
+    // -------------------------------------------------------
 
-    if (!(file instanceof File)) {
+    const contentType =
+      request.headers.get("content-type") ?? "";
+
+    let base64Image = "";
+    let mimeType = "image/jpeg";
+
+    if (contentType.includes("application/json")) {
+      // -----------------------------------------------------
+      // MOBILE
+      // -----------------------------------------------------
+
+      const body = await request.json();
+
+      if (
+        !body?.imageBase64 ||
+        typeof body.imageBase64 !== "string"
+      ) {
+        return NextResponse.json(
+          {
+            error: "Please provide one product image.",
+          },
+          { status: 400 },
+        );
+      }
+
+      base64Image = body.imageBase64;
+
+      if (
+        typeof body.mimeType === "string" &&
+        body.mimeType.startsWith("image/")
+      ) {
+        mimeType = body.mimeType;
+      }
+    } else {
+      // -----------------------------------------------------
+      // WEB SHOP
+      // -----------------------------------------------------
+
+      const formData = await request.formData();
+      const file = formData.get("image");
+
+      if (!(file instanceof File)) {
+        return NextResponse.json(
+          {
+            error: "Please provide one product image.",
+          },
+          { status: 400 },
+        );
+      }
+
+      if (!file.type.startsWith("image/")) {
+        return NextResponse.json(
+          {
+            error: "The selected file must be an image.",
+          },
+          { status: 400 },
+        );
+      }
+
+      const maxSize = 10 * 1024 * 1024;
+
+      if (file.size > maxSize) {
+        return NextResponse.json(
+          {
+            error:
+              "Image is too large. Please use an image under 10 MB.",
+          },
+          { status: 400 },
+        );
+      }
+
+      mimeType = file.type;
+
+      const bytes = await file.arrayBuffer();
+
+      base64Image = Buffer.from(bytes).toString(
+        "base64",
+      );
+    }
+
+    // -------------------------------------------------------
+    // SAFETY CHECK
+    // -------------------------------------------------------
+
+    if (!base64Image) {
       return NextResponse.json(
         {
-          error: "Please provide one product image.",
+          error: "Could not read the product image.",
         },
         { status: 400 },
       );
     }
 
-    if (!file.type.startsWith("image/")) {
-      return NextResponse.json(
-        {
-          error: "The selected file must be an image.",
-        },
-        { status: 400 },
-      );
-    }
+    // -------------------------------------------------------
+    // GEMINI
+    // -------------------------------------------------------
 
-    const maxSize = 10 * 1024 * 1024;
-
-    if (file.size > maxSize) {
-      return NextResponse.json(
-        {
-          error: "Image is too large. Please use an image under 10 MB.",
-        },
-        { status: 400 },
-      );
-    }
-
-    const bytes = await file.arrayBuffer();
-    const base64Image = Buffer.from(bytes).toString("base64");
-
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = new GoogleGenAI({
+      apiKey,
+    });
 
     const response = await ai.models.generateContent({
       model: MODEL,
@@ -110,7 +259,7 @@ export async function POST(request: Request) {
           parts: [
             {
               inlineData: {
-                mimeType: file.type,
+                mimeType,
                 data: base64Image,
               },
             },
@@ -125,7 +274,7 @@ Return ONLY valid JSON with these fields:
   "description": "useful customer-facing product description",
   "suggestedCategory": "best category for this product",
   "size": "size if clearly visible or inferable, otherwise empty string",
-    "keywords": ["keyword1", "keyword2", "keyword3"]
+  "keywords": ["keyword1", "keyword2", "keyword3"]
 }
 
 Rules:
@@ -154,10 +303,16 @@ Rules:
       ],
     });
 
+    // -------------------------------------------------------
+    // PARSE GEMINI RESPONSE
+    // -------------------------------------------------------
+
     const text = response.text?.trim();
 
     if (!text) {
-      throw new Error("AI returned an empty response.");
+      throw new Error(
+        "AI returned an empty response.",
+      );
     }
 
     const cleaned = text
@@ -177,41 +332,61 @@ Rules:
     try {
       result = JSON.parse(cleaned);
     } catch {
-      throw new Error("AI returned an invalid response.");
+      throw new Error(
+        "AI returned an invalid response.",
+      );
     }
 
+    // -------------------------------------------------------
+    // RETURN RESULT
+    // -------------------------------------------------------
+
     return NextResponse.json({
-      name: typeof result.name === "string" ? result.name : "",
+      name:
+        typeof result.name === "string"
+          ? result.name
+          : "",
+
       description:
         typeof result.description === "string"
           ? result.description
           : "",
+
       suggestedCategory:
         typeof result.suggestedCategory === "string"
           ? result.suggestedCategory
           : "",
-      size: typeof result.size === "string"
-        ? result.size
-        : "",
-        keywords: Array.isArray(result.keywords)
-  ? result.keywords
-      .filter((keyword): keyword is string => typeof keyword === "string")
-      .map((keyword) => keyword.trim().toLowerCase())
-      .filter(Boolean)
-      .slice(0, 10)
-  : [],
+
+      size:
+        typeof result.size === "string"
+          ? result.size
+          : "",
+
+      keywords: Array.isArray(result.keywords)
+        ? result.keywords
+            .filter(
+              (keyword: unknown): keyword is string =>
+                typeof keyword === "string",
+            )
+            .map((keyword: string) =>
+              keyword.trim().toLowerCase(),
+            )
+            .filter((keyword: string) =>
+              Boolean(keyword),
+            )
+            .slice(0, 10)
+        : [],
     });
   } catch (error) {
-    console.error("Product AI analysis error:", error);
+    console.error(
+      "Product AI analysis error:",
+      error,
+    );
 
-    /*
-     * If Gemini rejects the request because its own quota/rate limit
-     * has been reached, tell the UI that AI is unavailable.
-     *
-     * We deliberately do not retry automatically.
-     */
     const message =
-      error instanceof Error ? error.message.toLowerCase() : "";
+      error instanceof Error
+        ? error.message.toLowerCase()
+        : "";
 
     if (
       message.includes("quota") ||

@@ -61,13 +61,13 @@ export function SocialFloat({ settings }: SocialFloatProps) {
     setSending(true);
 
     try {
-      const form = event.currentTarget;
+     // const form = event.currentTarget;
 
      
 
-      const response = await emailjs.sendForm(serviceId, templateId, form, {
-        publicKey,
-      });
+      // const response = await emailjs.sendForm(serviceId, templateId, form, {
+      //   publicKey,
+      // });
 
       
 
