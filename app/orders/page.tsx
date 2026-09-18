@@ -16,26 +16,31 @@ export default async function OrdersPage() {
     redirect("/auth/login?redirectTo=/orders");
   }
 
-  
+  const [{ data: orders, error }, { data: siteSettings }] =
+    await Promise.all([
+      supabase
+        .from("orders")
+        .select(
+          "id, order_number, status, payment_method, payment_status, subtotal, shipping_cost, total, created_at",
+        )
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false }),
 
-  const { data: orders, error } = await supabase
-    .from("orders")
-    .select(
-      "id, order_number, status, payment_method, payment_status, subtotal, shipping_cost, total, created_at",
-    )
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
+      supabase
+        .from("site_settings")
+        .select("catalog_mode")
+        .eq("id", true)
+        .maybeSingle(),
+    ]);
 
   if (error) {
     throw new Error(error.message);
   }
 
-  
+  const catalogMode = siteSettings?.catalog_mode ?? false;
 
   return (
     <main className="min-h-screen bg-background">
-    
-
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
         <div className="mb-8">
           <h1 className="text-3xl font-semibold tracking-tight">
@@ -77,26 +82,32 @@ export default async function OrdersPage() {
                       {order.status}
                     </span>
 
-                    <span className="rounded-full bg-muted px-3 py-1">
-                      {order.payment_method === "twint"
-                        ? "TWINT"
-                        : "Bank Transfer"}
-                    </span>
+                    {!catalogMode && (
+                      <>
+                        <span className="rounded-full bg-muted px-3 py-1">
+                          {order.payment_method === "twint"
+                            ? "TWINT"
+                            : "Bank Transfer"}
+                        </span>
 
-                    <span className="rounded-full bg-muted px-3 py-1">
-                      {order.payment_status}
-                    </span>
+                        <span className="rounded-full bg-muted px-3 py-1">
+                          {order.payment_status}
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
 
                 <div className="mt-5 flex flex-col gap-4 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="text-sm">
                     <span className="text-muted-foreground">
-                      Total
+                      {catalogMode ? "Price" : "Total"}
                     </span>
 
                     <span className="ml-2 font-semibold">
-                      CHF {Number(order.total).toFixed(2)}
+                      {catalogMode
+                        ? "Confirmed directly"
+                        : `CHF ${Number(order.total).toFixed(2)}`}
                     </span>
                   </div>
 

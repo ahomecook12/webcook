@@ -27,14 +27,23 @@ export default async function OrderSuccessPage({
     redirect("/auth/login");
   }
 
-  const { data: orderData, error } = await supabase
-    .from("orders")
-    .select(
-      "order_number, status, payment_method, payment_status, subtotal, shipping_cost, total",
-    )
-    .eq("order_number", order)
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const [{ data: orderData, error }, { data: siteSettings }] =
+    await Promise.all([
+      supabase
+        .from("orders")
+        .select(
+          "order_number, status, payment_method, payment_status, subtotal, shipping_cost, total",
+        )
+        .eq("order_number", order)
+        .eq("user_id", user.id)
+        .maybeSingle(),
+
+      supabase
+        .from("site_settings")
+        .select("catalog_mode")
+        .eq("id", true)
+        .maybeSingle(),
+    ]);
 
   if (error) {
     throw new Error(error.message);
@@ -43,6 +52,8 @@ export default async function OrderSuccessPage({
   if (!orderData) {
     redirect("/");
   }
+
+  const catalogMode = siteSettings?.catalog_mode ?? false;
 
   const paymentLabel =
     orderData.payment_method === "twint"
@@ -70,54 +81,75 @@ export default async function OrderSuccessPage({
               <span className="text-muted-foreground">
                 Order number
               </span>
+
               <span className="font-medium">
                 {orderData.order_number}
               </span>
             </div>
 
-            <div className="mt-3 flex justify-between gap-4">
-              <span className="text-muted-foreground">
-                Payment method
-              </span>
-              <span className="font-medium">
-                {paymentLabel}
-              </span>
-            </div>
+            {catalogMode ? (
+              <div className="mt-4 border-t pt-4">
+                <p className="font-medium">
+                  We will contact you with the price details.
+                </p>
 
-            <div className="mt-3 flex justify-between gap-4">
-              <span className="text-muted-foreground">
-                Payment status
-              </span>
-              <span className="font-medium">
-                Awaiting verification
-              </span>
-            </div>
-
-            <div className="mt-4 border-t pt-4">
-              <div className="flex justify-between font-semibold">
-                <span>Total</span>
-                <span>
-                  CHF {Number(orderData.total).toFixed(2)}
-                </span>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Your order has been received. An admin will
+                  contact you with the final price and payment
+                  details.
+                </p>
               </div>
-            </div>
+            ) : (
+              <>
+                <div className="mt-3 flex justify-between gap-4">
+                  <span className="text-muted-foreground">
+                    Payment method
+                  </span>
+
+                  <span className="font-medium">
+                    {paymentLabel}
+                  </span>
+                </div>
+
+                <div className="mt-3 flex justify-between gap-4">
+                  <span className="text-muted-foreground">
+                    Payment status
+                  </span>
+
+                  <span className="font-medium">
+                    Awaiting verification
+                  </span>
+                </div>
+
+                <div className="mt-4 border-t pt-4">
+                  <div className="flex justify-between font-semibold">
+                    <span>Total</span>
+
+                    <span>
+                      CHF {Number(orderData.total).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
-          {orderData.payment_method === "twint" ? (
-            <p className="mt-6 text-sm text-muted-foreground">
-              Please complete your TWINT payment using the
-              payment details shown during checkout. Your
-              order will be confirmed after payment is
-              verified.
-            </p>
-          ) : (
-            <p className="mt-6 text-sm text-muted-foreground">
-              Please complete your bank transfer using the
-              bank details shown during checkout. Your
-              order will be confirmed after payment is
-              verified.
-            </p>
-          )}
+          {!catalogMode &&
+            (orderData.payment_method === "twint" ? (
+              <p className="mt-6 text-sm text-muted-foreground">
+                Please complete your TWINT payment using the
+                payment details shown during checkout. Your
+                order will be confirmed after payment is
+                verified.
+              </p>
+            ) : (
+              <p className="mt-6 text-sm text-muted-foreground">
+                Please complete your bank transfer using the
+                bank details shown during checkout. Your
+                order will be confirmed after payment is
+                verified.
+              </p>
+            ))}
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
             <Link

@@ -6,7 +6,6 @@ import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import CartItemControls from "@/components/storefront/cart-item-controls";
 
-
 type CartProduct = {
   id: string;
   name: string;
@@ -29,26 +28,28 @@ export default async function CartPage() {
     redirect("/auth/login?redirectTo=/cart");
   }
 
-  const [{ data: profile }, { data: cart, error: cartError }] =
-    await Promise.all([
-      supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .maybeSingle(),
+  const [
+    { data: profile },
+    { data: cart, error: cartError },
+    { data: siteSettings },
+  ] = await Promise.all([
+    supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
 
-      supabase
-        .from("carts")
-        .select("id")
-        .eq("user_id", user.id)
-        .maybeSingle(),
-    ]);
+    supabase.from("carts").select("id").eq("user_id", user.id).maybeSingle(),
+
+    supabase
+      .from("site_settings")
+      .select("catalog_mode")
+      .eq("id", true)
+      .maybeSingle(),
+  ]);
 
   if (cartError) {
     throw new Error(cartError.message);
   }
 
   const isAdmin = profile?.role === "admin";
+  const catalogMode = siteSettings?.catalog_mode === true;
 
   /*
    * User does not have a cart yet.
@@ -56,17 +57,11 @@ export default async function CartPage() {
   if (!cart) {
     return (
       <main className="min-h-screen bg-background">
-       
-
         <div className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
-          <h1 className="text-3xl font-semibold tracking-tight">
-            Your cart
-          </h1>
+          <h1 className="text-3xl font-semibold tracking-tight">Your cart</h1>
 
           <div className="mt-8 rounded-xl border border-dashed p-10 text-center">
-            <p className="font-medium">
-              Your cart is empty.
-            </p>
+            <p className="font-medium">Your cart is empty.</p>
 
             <Link
               href="/products"
@@ -87,11 +82,10 @@ export default async function CartPage() {
    * available_for_sale is included because pre-booking
    * products have stock = 0 but are still allowed in cart.
    */
-  const { data: cartItems, error: itemsError } =
-    await supabase
-      .from("cart_items")
-      .select(
-        `
+  const { data: cartItems, error: itemsError } = await supabase
+    .from("cart_items")
+    .select(
+      `
           id,
           quantity,
           product:products!cart_items_product_id_fkey(
@@ -105,9 +99,9 @@ export default async function CartPage() {
             available_for_sale
           )
         `,
-      )
-      .eq("cart_id", cart.id)
-      .order("created_at");
+    )
+    .eq("cart_id", cart.id)
+    .order("created_at");
 
   if (itemsError) {
     throw new Error(itemsError.message);
@@ -125,34 +119,22 @@ export default async function CartPage() {
     product: CartProduct | null;
   }[];
 
-  const cartCount = items.reduce(
-    (total, item) => total + item.quantity,
-    0,
-  );
+  const cartCount = items.reduce((total, item) => total + item.quantity, 0);
 
   const subtotal = items.reduce((total, item) => {
     if (!item.product) return total;
 
-    const price =
-      item.product.sale_price ??
-      item.product.price;
+    const price = item.product.sale_price ?? item.product.price;
 
-    return (
-      total +
-      Number(price) * item.quantity
-    );
+    return total + Number(price) * item.quantity;
   }, 0);
 
   return (
     <main className="min-h-screen bg-background">
-     
-
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight">
-              Your cart
-            </h1>
+            <h1 className="text-3xl font-semibold tracking-tight">Your cart</h1>
 
             <p className="mt-2 text-muted-foreground">
               Review your selected items.
@@ -169,9 +151,7 @@ export default async function CartPage() {
 
         {items.length === 0 ? (
           <div className="mt-8 rounded-xl border border-dashed p-10 text-center">
-            <p className="font-medium">
-              Your cart is empty.
-            </p>
+            <p className="font-medium">Your cart is empty.</p>
 
             <Link
               href="/products"
@@ -188,12 +168,9 @@ export default async function CartPage() {
 
                 const product = item.product;
 
-                const image =
-                  product.images?.[0];
+                const image = product.images?.[0];
 
-                const price =
-                  product.sale_price ??
-                  product.price;
+                const price = product.sale_price ?? product.price;
 
                 /*
                  * Pre-booking:
@@ -205,8 +182,7 @@ export default async function CartPage() {
                  * the cart.
                  */
                 const isPreBooking =
-                  !product.available_for_sale &&
-                  product.stock <= 0;
+                  !product.available_for_sale && product.stock <= 0;
 
                 return (
                   <div
@@ -242,29 +218,26 @@ export default async function CartPage() {
                         </p>
                       )}
 
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        CHF{" "}
-                        {Number(price).toFixed(2)}
-                      </p>
+                      {!catalogMode && (
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          CHF {Number(price).toFixed(2)}
+                        </p>
+                      )}
 
                       <CartItemControls
                         cartItemId={item.id}
                         quantity={item.quantity}
                         stock={product.stock}
                         cartCount={cartCount}
-                        availableForSale={
-                          product.available_for_sale
-                        }
+                        availableForSale={product.available_for_sale}
                       />
                     </div>
 
-                    <div className="text-right font-medium">
-                      CHF{" "}
-                      {(
-                        Number(price) *
-                        item.quantity
-                      ).toFixed(2)}
-                    </div>
+                    {!catalogMode && (
+                      <div className="text-right font-medium">
+                        CHF {(Number(price) * item.quantity).toFixed(2)}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -272,36 +245,33 @@ export default async function CartPage() {
 
             <div className="h-fit rounded-xl border p-5">
               <h2 className="text-lg font-semibold">
-                Order summary
+                {catalogMode ? "Your selection" : "Order summary"}
               </h2>
 
-              <div className="mt-5 flex justify-between text-sm">
-                <span className="text-muted-foreground">
-                  Subtotal
-                </span>
+              {!catalogMode ? (
+                <>
+                  <div className="mt-5 flex justify-between text-sm">
+                    <span className="text-muted-foreground">Subtotal</span>
 
-                <span>
-                  CHF {subtotal.toFixed(2)}
-                </span>
-              </div>
+                    <span>CHF {subtotal.toFixed(2)}</span>
+                  </div>
 
-              <div className="mt-4 border-t pt-4">
-                <div className="flex justify-between font-semibold">
-                  <span>Total</span>
+                  <div className="mt-4 border-t pt-4">
+                    <div className="flex justify-between font-semibold">
+                      <span>Total</span>
 
-                  <span>
-                    CHF {subtotal.toFixed(2)}
-                  </span>
-                </div>
-              </div>
+                      <span>CHF {subtotal.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <p className="mt-5 text-sm text-muted-foreground">
+                  Continue to checkout to submit your selection.
+                </p>
+              )}
 
-              <Link
-                href="/checkout"
-                className="mt-6 block"
-              >
-                <Button className="w-full">
-                  Proceed to checkout
-                </Button>
+              <Link href="/checkout" className="mt-6 block">
+                <Button className="w-full">Proceed to checkout</Button>
               </Link>
             </div>
           </div>

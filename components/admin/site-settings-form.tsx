@@ -5,12 +5,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,6 +20,7 @@ export type SiteSettings = {
   hero_media: HeroMedia[] | null;
   homepage_category_ids: string[] | null;
   customer_review_images: string[] | null;
+  catalog_mode: boolean;
 };
 export type SocialLink = {
   id: string;
@@ -36,7 +32,7 @@ export type SocialLink = {
 export type StorefrontSettings = {
   id: string;
 
-   // Social
+  // Social
   social_enabled: boolean;
   social_links: SocialLink[];
 
@@ -70,6 +66,7 @@ const defaults: SiteSettings = {
   hero_media: [],
   homepage_category_ids: [],
   customer_review_images: [],
+  catalog_mode: false,
 };
 
 export type HomepageCategory = {
@@ -116,27 +113,20 @@ export function SiteSettingsForm({
     ...settings,
   };
 
-  const [theme, setTheme] = useState<SiteSettings["theme"]>(
-    initial.theme,
-  );
+  const [theme, setTheme] = useState<SiteSettings["theme"]>(initial.theme);
+  const [catalogMode, setCatalogMode] = useState(initial.catalog_mode ?? false);
 
   const [title, setTitle] = useState(initial.hero_title);
 
-  const [description, setDescription] = useState(
-    initial.hero_description,
-  );
+  const [description, setDescription] = useState(initial.hero_description);
 
-  const [media, setMedia] = useState<HeroMedia[]>(
-    initial.hero_media ?? [],
-  );
-const [customerReviewImages, setCustomerReviewImages] =
-  useState<string[]>(
+  const [media, setMedia] = useState<HeroMedia[]>(initial.hero_media ?? []);
+  const [customerReviewImages, setCustomerReviewImages] = useState<string[]>(
     initial.customer_review_images ?? [],
   );
-  const [homepageCategoryIds, setHomepageCategoryIds] =
-    useState<string[]>(
-      settings?.homepage_category_ids ?? [],
-    );
+  const [homepageCategoryIds, setHomepageCategoryIds] = useState<string[]>(
+    settings?.homepage_category_ids ?? [],
+  );
 
   /*
    * ---------------------------------------------------------
@@ -152,18 +142,15 @@ const [customerReviewImages, setCustomerReviewImages] =
     storefrontSettings?.twint_phone ?? "",
   );
 
-  const [bankTransferEnabled, setBankTransferEnabled] =
-    useState(
-      storefrontSettings?.bank_transfer_enabled ?? false,
-    );
+  const [bankTransferEnabled, setBankTransferEnabled] = useState(
+    storefrontSettings?.bank_transfer_enabled ?? false,
+  );
 
   const [bankAccountName, setBankAccountName] = useState(
     storefrontSettings?.bank_account_name ?? "",
   );
 
-  const [bankIban, setBankIban] = useState(
-    storefrontSettings?.bank_iban ?? "",
-  );
+  const [bankIban, setBankIban] = useState(storefrontSettings?.bank_iban ?? "");
 
   /*
    * ---------------------------------------------------------
@@ -222,7 +209,7 @@ const [customerReviewImages, setCustomerReviewImages] =
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-    function addSocialLink() {
+  function addSocialLink() {
     setSocialLinks((current) => [
       ...current,
       {
@@ -241,17 +228,13 @@ const [customerReviewImages, setCustomerReviewImages] =
   ) {
     setSocialLinks((current) =>
       current.map((link) =>
-        link.id === id
-          ? { ...link, [field]: value }
-          : link,
+        link.id === id ? { ...link, [field]: value } : link,
       ),
     );
   }
 
   function removeSocialLink(id: string) {
-    setSocialLinks((current) =>
-      current.filter((link) => link.id !== id),
-    );
+    setSocialLinks((current) => current.filter((link) => link.id !== id));
   }
 
   async function uploadSocialIcon(
@@ -280,28 +263,18 @@ const [customerReviewImages, setCustomerReviewImages] =
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          data.error || "Icon upload failed.",
-        );
+        throw new Error(data.error || "Icon upload failed.");
       }
 
-      updateSocialLink(
-        id,
-        "icon_url",
-        data.url as string,
-      );
+      updateSocialLink(id, "icon_url", data.url as string);
     } catch (error) {
-      alert(
-        error instanceof Error
-          ? error.message
-          : "Icon upload failed.",
-      );
+      alert(error instanceof Error ? error.message : "Icon upload failed.");
     } finally {
       setUploading(false);
     }
   }
 
-    /*
+  /*
    * ---------------------------------------------------------
    * REMOVE HERO MEDIA
    * ---------------------------------------------------------
@@ -319,25 +292,20 @@ const [customerReviewImages, setCustomerReviewImages] =
     if (!confirmed) return;
 
     try {
-      const response = await fetch(
-        "/api/admin/cloudinary/delete",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            url: item.url,
-          }),
+      const response = await fetch("/api/admin/cloudinary/delete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-      );
+        body: JSON.stringify({
+          url: item.url,
+        }),
+      });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          data.error || "Failed to remove hero image.",
-        );
+        throw new Error(data.error || "Failed to remove hero image.");
       }
 
       setMedia((current) =>
@@ -347,9 +315,7 @@ const [customerReviewImages, setCustomerReviewImages] =
       console.error("Hero image removal error:", error);
 
       alert(
-        error instanceof Error
-          ? error.message
-          : "Failed to remove hero image.",
+        error instanceof Error ? error.message : "Failed to remove hero image.",
       );
     }
   }
@@ -360,9 +326,7 @@ const [customerReviewImages, setCustomerReviewImages] =
    * ---------------------------------------------------------
    */
 
-  async function uploadHeroMedia(
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) {
+  async function uploadHeroMedia(event: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
 
     event.target.value = "";
@@ -387,9 +351,7 @@ const [customerReviewImages, setCustomerReviewImages] =
           const data = await response.json();
 
           if (!response.ok) {
-            throw new Error(
-              data.error || "Media upload failed.",
-            );
+            throw new Error(data.error || "Media upload failed.");
           }
 
           return {
@@ -403,80 +365,67 @@ const [customerReviewImages, setCustomerReviewImages] =
 
       setMedia((current) => [...current, ...uploaded]);
     } catch (error) {
+      alert(error instanceof Error ? error.message : "Media upload failed.");
+    } finally {
+      setUploading(false);
+    }
+  }
+  async function uploadCustomerReviewImages(
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) {
+    const files = Array.from(event.target.files ?? []);
+
+    event.target.value = "";
+
+    if (!files.length) return;
+
+    setUploading(true);
+
+    try {
+      const uploaded = await Promise.all(
+        files.map(async (file) => {
+          const body = new FormData();
+
+          body.append("file", file);
+          body.append("folder", "reviews");
+
+          const response = await fetch("/api/upload", {
+            method: "POST",
+            body,
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.error || "Review image upload failed.");
+          }
+
+          return data.url as string;
+        }),
+      );
+
+      setCustomerReviewImages((current) => [...current, ...uploaded]);
+    } catch (error) {
       alert(
-        error instanceof Error
-          ? error.message
-          : "Media upload failed.",
+        error instanceof Error ? error.message : "Review image upload failed.",
       );
     } finally {
       setUploading(false);
     }
   }
-async function uploadCustomerReviewImages(
-  event: React.ChangeEvent<HTMLInputElement>,
-) {
-  const files = Array.from(event.target.files ?? []);
+  async function removeCustomerReviewImage(index: number) {
+    const url = customerReviewImages[index];
 
-  event.target.value = "";
+    if (!url) return;
 
-  if (!files.length) return;
-
-  setUploading(true);
-
-  try {
-    const uploaded = await Promise.all(
-      files.map(async (file) => {
-        const body = new FormData();
-
-        body.append("file", file);
-        body.append("folder", "reviews");
-
-        const response = await fetch("/api/upload", {
-          method: "POST",
-          body,
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(
-            data.error || "Review image upload failed.",
-          );
-        }
-
-        return data.url as string;
-      }),
+    const confirmed = window.confirm(
+      "Are you sure you want to remove this customer review image?",
     );
 
-    setCustomerReviewImages((current) => [
-      ...current,
-      ...uploaded,
-    ]);
-  } catch (error) {
-    alert(
-      error instanceof Error
-        ? error.message
-        : "Review image upload failed.",
-    );
-  } finally {
-    setUploading(false);
-  }
-}
-async function removeCustomerReviewImage(index: number) {
-  const url = customerReviewImages[index];
+    if (!confirmed) return;
 
-  if (!url) return;
-
-  const confirmed = window.confirm(
-    "Are you sure you want to remove this customer review image?",
-  );
-
-  if (!confirmed) return;
-
-  try {
-    const response = await fetch(
-      "/api/admin/cloudinary/delete",
-      {
+    try {
+      const response = await fetch("/api/admin/cloudinary/delete", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -484,34 +433,29 @@ async function removeCustomerReviewImage(index: number) {
         body: JSON.stringify({
           url,
         }),
-      },
-    );
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (!response.ok) {
-      throw new Error(
-        data.error ||
-          "Failed to remove customer review image.",
+      if (!response.ok) {
+        throw new Error(
+          data.error || "Failed to remove customer review image.",
+        );
+      }
+
+      setCustomerReviewImages((current) =>
+        current.filter((_, imageIndex) => imageIndex !== index),
+      );
+    } catch (error) {
+      console.error("Customer review image removal error:", error);
+
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to remove customer review image.",
       );
     }
-
-    setCustomerReviewImages((current) =>
-      current.filter((_, imageIndex) => imageIndex !== index),
-    );
-  } catch (error) {
-    console.error(
-      "Customer review image removal error:",
-      error,
-    );
-
-    alert(
-      error instanceof Error
-        ? error.message
-        : "Failed to remove customer review image.",
-    );
   }
-}
   /*
    * ---------------------------------------------------------
    * SAVE EVERYTHING
@@ -520,9 +464,7 @@ async function removeCustomerReviewImage(index: number) {
 
   async function saveSettings() {
     if (!title.trim() || !description.trim()) {
-      alert(
-        "Please provide a hero title and description.",
-      );
+      alert("Please provide a hero title and description.");
       return;
     }
 
@@ -537,23 +479,23 @@ async function removeCustomerReviewImage(index: number) {
        * -----------------------------------------------------
        */
 
-      const { error: siteSettingsError } =
-        await supabase
-          .from("site_settings")
-          .upsert(
-            {
-              id: true,
-              theme,
-              hero_title: title.trim(),
-              hero_description: description.trim(),
-              hero_media: media,
-              homepage_category_ids: homepageCategoryIds,
-              customer_review_images: customerReviewImages,
-            },
-            {
-              onConflict: "id",
-            },
-          );
+      const { error: siteSettingsError } = await supabase
+        .from("site_settings")
+        .upsert(
+          {
+            id: true,
+            theme,
+            hero_title: title.trim(),
+            hero_description: description.trim(),
+            hero_media: media,
+            homepage_category_ids: homepageCategoryIds,
+            customer_review_images: customerReviewImages,
+            catalog_mode: catalogMode,
+          },
+          {
+            onConflict: "id",
+          },
+        );
 
       if (siteSettingsError) {
         throw siteSettingsError;
@@ -571,7 +513,6 @@ async function removeCustomerReviewImage(index: number) {
          */
         social_enabled: socialEnabled,
 
-        
         social_links: socialLinks,
 
         /*
@@ -579,49 +520,37 @@ async function removeCustomerReviewImage(index: number) {
          */
         twint_enabled: twintEnabled,
 
-        twint_phone:
-          twintPhone.trim() || null,
+        twint_phone: twintPhone.trim() || null,
 
-        bank_transfer_enabled:
-          bankTransferEnabled,
+        bank_transfer_enabled: bankTransferEnabled,
 
-        bank_account_name:
-          bankAccountName.trim() || null,
+        bank_account_name: bankAccountName.trim() || null,
 
-        bank_iban:
-          bankIban.trim() || null,
+        bank_iban: bankIban.trim() || null,
 
         /*
          * Shipping
          */
         shipping_enabled: shippingEnabled,
 
-        shipping_method:
-          shippingMethod.trim() || null,
+        shipping_method: shippingMethod.trim() || null,
 
-        shipping_price: freeShipping
-          ? 0
-          : Number(shippingPrice) || 0,
+        shipping_price: freeShipping ? 0 : Number(shippingPrice) || 0,
 
         free_shipping: freeShipping,
 
         /*
          * Store
          */
-        store_name:
-          storeName.trim() || null,
+        store_name: storeName.trim() || null,
 
-        store_address:
-          storeAddress.trim() || null,
+        store_address: storeAddress.trim() || null,
 
-        store_city:
-          storeCity.trim() || null,
+        store_city: storeCity.trim() || null,
 
-        store_postal_code:
-          storePostalCode.trim() || null,
+        store_postal_code: storePostalCode.trim() || null,
 
-        store_country:
-          storeCountry.trim() || "Switzerland",
+        store_country: storeCountry.trim() || "Switzerland",
       };
 
       /*
@@ -636,12 +565,11 @@ async function removeCustomerReviewImage(index: number) {
           }
         : storefrontData;
 
-      const { error: storefrontError } =
-        await supabase
-          .from("storefront_settings")
-          .upsert(payload, {
-            onConflict: "id",
-          });
+      const { error: storefrontError } = await supabase
+        .from("storefront_settings")
+        .upsert(payload, {
+          onConflict: "id",
+        });
 
       if (storefrontError) {
         throw storefrontError;
@@ -653,17 +581,12 @@ async function removeCustomerReviewImage(index: number) {
        * -----------------------------------------------------
        */
 
-      alert(
-        "Storefront settings saved successfully.",
-      );
+      alert("Storefront settings saved successfully.");
 
       router.push("/admin");
       router.refresh();
     } catch (error) {
-      console.error(
-        "Storefront settings save error:",
-        error,
-      );
+      console.error("Storefront settings save error:", error);
 
       alert(
         error instanceof Error
@@ -684,18 +607,14 @@ async function removeCustomerReviewImage(index: number) {
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold">
-          Storefront settings
-        </h1>
+        <h1 className="text-3xl font-bold">Storefront settings</h1>
 
         <p className="mt-2 text-muted-foreground">
-          Choose your site palette and edit the homepage
-          hero.
+          Choose your site palette and edit the homepage hero.
         </p>
       </div>
 
       <div className="space-y-4">
-
         {/* =====================================================
             COLOUR PALETTE
         ====================================================== */}
@@ -706,73 +625,86 @@ async function removeCustomerReviewImage(index: number) {
           </CardHeader>
 
           <CardContent>
-            <Label htmlFor="theme">
-              Site mode
-            </Label>
+            <Label htmlFor="theme">Site mode</Label>
 
             <select
               id="theme"
               value={theme}
               onChange={(event) =>
-                setTheme(
-                  event.target.value as SiteSettings["theme"],
-                )
+                setTheme(event.target.value as SiteSettings["theme"])
               }
               className="mt-2 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
             >
-              <option value="golden">
-                Golden — warm and elegant
-              </option>
+              <option value="golden">Golden — warm and elegant</option>
 
-              <option value="light">
-                Light — clean and airy
-              </option>
+              <option value="light">Light — clean and airy</option>
 
-              <option value="dark">
-                Dark — rich and modern
-              </option>
+              <option value="dark">Dark — rich and modern</option>
             </select>
           </CardContent>
         </Card>
+        {/* =====================================================
+    CATALOG MODE
+====================================================== */}
 
+        <Card>
+          <CardHeader>
+            <CardTitle>Catalog Mode</CardTitle>
+
+            <p className="text-sm text-muted-foreground">
+              Hide product prices from customers while keeping them visible to
+              admins. Customers can still browse products and place orders
+              normally.
+            </p>
+          </CardHeader>
+
+          <CardContent>
+            <label className="flex cursor-pointer items-center gap-3">
+              <input
+                type="checkbox"
+                checked={catalogMode}
+                onChange={(event) => setCatalogMode(event.target.checked)}
+              />
+
+              <div>
+                <span className="font-medium">Enable Catalog Mode</span>
+
+                <p className="text-xs text-muted-foreground">
+                  Customers will see “Price on request” only on product detail
+                  pages. Prices will be hidden elsewhere on customer-facing
+                  pages.
+                </p>
+              </div>
+            </label>
+          </CardContent>
+        </Card>
         {/* =====================================================
             HERO
         ====================================================== */}
 
         <Card>
           <CardHeader>
-            <CardTitle>
-              Homepage hero carousel
-            </CardTitle>
+            <CardTitle>Homepage hero carousel</CardTitle>
           </CardHeader>
 
           <CardContent className="space-y-4">
-
             <div className="space-y-2">
-              <Label htmlFor="hero-title">
-                Title
-              </Label>
+              <Label htmlFor="hero-title">Title</Label>
 
               <Input
                 id="hero-title"
                 value={title}
-                onChange={(event) =>
-                  setTitle(event.target.value)
-                }
+                onChange={(event) => setTitle(event.target.value)}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="hero-description">
-                Description
-              </Label>
+              <Label htmlFor="hero-description">Description</Label>
 
               <Textarea
                 id="hero-description"
                 value={description}
-                onChange={(event) =>
-                  setDescription(event.target.value)
-                }
+                onChange={(event) => setDescription(event.target.value)}
                 rows={4}
               />
             </div>
@@ -822,7 +754,7 @@ async function removeCustomerReviewImage(index: number) {
                       />
                     )}
 
-                                       <Button
+                    <Button
                       type="button"
                       variant="destructive"
                       size="sm"
@@ -839,7 +771,6 @@ async function removeCustomerReviewImage(index: number) {
                 ))}
               </div>
             )}
-
           </CardContent>
         </Card>
 
@@ -849,184 +780,129 @@ async function removeCustomerReviewImage(index: number) {
 
         <Card>
           <CardHeader>
-            <CardTitle>
-              Homepage Product Strips
-            </CardTitle>
+            <CardTitle>Homepage Product Strips</CardTitle>
 
             <p className="text-sm text-muted-foreground">
-              Choose which product strips appear on the
-              homepage and arrange them in the order you
-              want.
+              Choose which product strips appear on the homepage and arrange
+              them in the order you want.
             </p>
           </CardHeader>
 
           <CardContent className="space-y-4">
-
             {homepageCategoryIds.length > 0 && (
               <div className="space-y-2">
-                <Label>
-                  Homepage order
-                </Label>
+                <Label>Homepage order</Label>
 
                 <div className="space-y-2">
-                  {homepageCategoryIds.map(
-                    (id, index) => {
-                      const isAll =
-                        id === ALL_PRODUCTS_ID;
+                  {homepageCategoryIds.map((id, index) => {
+                    const isAll = id === ALL_PRODUCTS_ID;
 
-                      const isPrebooking =
-                        id === PREBOOKING_ID;
+                    const isPrebooking = id === PREBOOKING_ID;
 
-                      const category =
-                        categories.find(
-                          (item) => item.id === id,
-                        );
+                    const category = categories.find((item) => item.id === id);
 
-                      const label = isAll
-                        ? "ALL PRODUCTS"
-                        : isPrebooking
-                          ? "PREBOOKING"
-                          : (category?.name ??
-                            "Unknown category");
+                    const label = isAll
+                      ? "ALL PRODUCTS"
+                      : isPrebooking
+                        ? "PREBOOKING"
+                        : (category?.name ?? "Unknown category");
 
-                      return (
-                        <div
-                          key={id}
-                          className="flex items-center justify-between gap-3 rounded-lg border p-3"
-                        >
-                          <div className="flex items-center gap-3">
-                            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-sm font-medium">
-                              {index + 1}
-                            </span>
+                    return (
+                      <div
+                        key={id}
+                        className="flex items-center justify-between gap-3 rounded-lg border p-3"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-sm font-medium">
+                            {index + 1}
+                          </span>
 
-                            <span className="font-medium">
-                              {label}
-                            </span>
-                          </div>
-
-                          <div className="flex gap-1">
-
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              disabled={index === 0}
-                              onClick={() => {
-                                setHomepageCategoryIds(
-                                  (current) => {
-                                    const next = [
-                                      ...current,
-                                    ];
-
-                                    [
-                                      next[index - 1],
-                                      next[index],
-                                    ] = [
-                                      next[index],
-                                      next[index - 1],
-                                    ];
-
-                                    return next;
-                                  },
-                                );
-                              }}
-                            >
-                              ↑
-                            </Button>
-
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              disabled={
-                                index ===
-                                homepageCategoryIds.length -
-                                  1
-                              }
-                              onClick={() => {
-                                setHomepageCategoryIds(
-                                  (current) => {
-                                    const next = [
-                                      ...current,
-                                    ];
-
-                                    [
-                                      next[index],
-                                      next[index + 1],
-                                    ] = [
-                                      next[index + 1],
-                                      next[index],
-                                    ];
-
-                                    return next;
-                                  },
-                                );
-                              }}
-                            >
-                              ↓
-                            </Button>
-
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setHomepageCategoryIds(
-                                  (current) =>
-                                    current.filter(
-                                      (item) =>
-                                        item !== id,
-                                    ),
-                                );
-                              }}
-                            >
-                              Remove
-                            </Button>
-
-                          </div>
+                          <span className="font-medium">{label}</span>
                         </div>
-                      );
-                    },
-                  )}
+
+                        <div className="flex gap-1">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={index === 0}
+                            onClick={() => {
+                              setHomepageCategoryIds((current) => {
+                                const next = [...current];
+
+                                [next[index - 1], next[index]] = [
+                                  next[index],
+                                  next[index - 1],
+                                ];
+
+                                return next;
+                              });
+                            }}
+                          >
+                            ↑
+                          </Button>
+
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={index === homepageCategoryIds.length - 1}
+                            onClick={() => {
+                              setHomepageCategoryIds((current) => {
+                                const next = [...current];
+
+                                [next[index], next[index + 1]] = [
+                                  next[index + 1],
+                                  next[index],
+                                ];
+
+                                return next;
+                              });
+                            }}
+                          >
+                            ↓
+                          </Button>
+
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setHomepageCategoryIds((current) =>
+                                current.filter((item) => item !== id),
+                              );
+                            }}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
 
             <div className="space-y-2">
-              <Label>
-                Add product strip
-              </Label>
+              <Label>Add product strip</Label>
 
               <div className="max-h-[280px] space-y-2 overflow-y-auto rounded-lg border p-2">
-
                 {/* ALL PRODUCTS */}
 
                 <label className="flex cursor-pointer items-center gap-3 rounded-lg border p-3 hover:bg-muted/50">
                   <input
                     type="checkbox"
-                    checked={homepageCategoryIds.includes(
-                      ALL_PRODUCTS_ID,
-                    )}
+                    checked={homepageCategoryIds.includes(ALL_PRODUCTS_ID)}
                     onChange={(event) => {
-                      setHomepageCategoryIds(
-                        (current) =>
-                          event.target.checked
-                            ? [
-                                ...current,
-                                ALL_PRODUCTS_ID,
-                              ]
-                            : current.filter(
-                                (id) =>
-                                  id !==
-                                  ALL_PRODUCTS_ID,
-                              ),
+                      setHomepageCategoryIds((current) =>
+                        event.target.checked
+                          ? [...current, ALL_PRODUCTS_ID]
+                          : current.filter((id) => id !== ALL_PRODUCTS_ID),
                       );
                     }}
                   />
 
-                  <span className="font-medium">
-                    ALL PRODUCTS
-                  </span>
+                  <span className="font-medium">ALL PRODUCTS</span>
                 </label>
 
                 {/* PREBOOKING */}
@@ -1034,38 +910,23 @@ async function removeCustomerReviewImage(index: number) {
                 <label className="flex cursor-pointer items-center gap-3 rounded-lg border p-3 hover:bg-muted/50">
                   <input
                     type="checkbox"
-                    checked={homepageCategoryIds.includes(
-                      PREBOOKING_ID,
-                    )}
+                    checked={homepageCategoryIds.includes(PREBOOKING_ID)}
                     onChange={(event) => {
-                      setHomepageCategoryIds(
-                        (current) =>
-                          event.target.checked
-                            ? [
-                                ...current,
-                                PREBOOKING_ID,
-                              ]
-                            : current.filter(
-                                (id) =>
-                                  id !==
-                                  PREBOOKING_ID,
-                              ),
+                      setHomepageCategoryIds((current) =>
+                        event.target.checked
+                          ? [...current, PREBOOKING_ID]
+                          : current.filter((id) => id !== PREBOOKING_ID),
                       );
                     }}
                   />
 
-                  <span className="font-medium">
-                    PREBOOKING
-                  </span>
+                  <span className="font-medium">PREBOOKING</span>
                 </label>
 
                 {/* CATEGORIES */}
 
                 {categories.map((category) => {
-                  const checked =
-                    homepageCategoryIds.includes(
-                      category.id,
-                    );
+                  const checked = homepageCategoryIds.includes(category.id);
 
                   return (
                     <label
@@ -1076,119 +937,101 @@ async function removeCustomerReviewImage(index: number) {
                         type="checkbox"
                         checked={checked}
                         onChange={(event) => {
-                          setHomepageCategoryIds(
-                            (current) =>
-                              event.target.checked
-                                ? [
-                                    ...current,
-                                    category.id,
-                                  ]
-                                : current.filter(
-                                    (id) =>
-                                      id !==
-                                      category.id,
-                                  ),
+                          setHomepageCategoryIds((current) =>
+                            event.target.checked
+                              ? [...current, category.id]
+                              : current.filter((id) => id !== category.id),
                           );
                         }}
                       />
 
-                      <span className="font-medium">
-                        {category.name}
-                      </span>
+                      <span className="font-medium">{category.name}</span>
                     </label>
                   );
                 })}
               </div>
 
               <p className="text-xs text-muted-foreground">
-                Scroll to see more categories. The box
-                shows about 5 items at a time.
+                Scroll to see more categories. The box shows about 5 items at a
+                time.
               </p>
             </div>
-
           </CardContent>
         </Card>
 
-  {/* =====================================================
+        {/* =====================================================
     CUSTOMER REVIEWS
 ====================================================== */}
 
-<Card>
-  <CardHeader>
-    <CardTitle>
-      Customer Review Images
-    </CardTitle>
+        <Card>
+          <CardHeader>
+            <CardTitle>Customer Review Images</CardTitle>
 
-    <p className="text-sm text-muted-foreground">
-      Upload screenshots or images of customer reviews.
-      These will appear in a sliding gallery on the
-      homepage.
-    </p>
-  </CardHeader>
+            <p className="text-sm text-muted-foreground">
+              Upload screenshots or images of customer reviews. These will
+              appear in a sliding gallery on the homepage.
+            </p>
+          </CardHeader>
 
-  <CardContent className="space-y-4">
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="customer-review-upload">
+                Upload review images
+              </Label>
 
-    <div className="space-y-2">
-      <Label htmlFor="customer-review-upload">
-        Upload review images
-      </Label>
+              <Input
+                id="customer-review-upload"
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={uploadCustomerReviewImages}
+                disabled={uploading}
+              />
 
-      <Input
-        id="customer-review-upload"
-        type="file"
-        accept="image/*"
-        multiple
-        onChange={uploadCustomerReviewImages}
-        disabled={uploading}
-      />
+              <p className="text-xs text-muted-foreground">
+                {uploading
+                  ? "Uploading to Cloudinary..."
+                  : "You can upload multiple customer review images."}
+              </p>
+            </div>
 
-      <p className="text-xs text-muted-foreground">
-        {uploading
-          ? "Uploading to Cloudinary..."
-          : "You can upload multiple customer review images."}
-      </p>
-    </div>
+            {customerReviewImages.length > 0 && (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {customerReviewImages.map((url, index) => (
+                  <div
+                    key={`${url}-${index}`}
+                    className="relative overflow-hidden rounded-lg border"
+                  >
+                    <Image
+                      src={url}
+                      alt={`Customer review ${index + 1}`}
+                      width={300}
+                      height={300}
+                      unoptimized
+                      className="aspect-square w-full object-cover"
+                    />
 
-    {customerReviewImages.length > 0 && (
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {customerReviewImages.map((url, index) => (
-          <div
-            key={`${url}-${index}`}
-            className="relative overflow-hidden rounded-lg border"
-          >
-            <Image
-              src={url}
-              alt={`Customer review ${index + 1}`}
-              width={300}
-              height={300}
-              unoptimized
-              className="aspect-square w-full object-cover"
-            />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => removeCustomerReviewImage(index)}
+                      className="absolute right-2 top-2"
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
 
-            <Button
-              type="button"
-              variant="destructive"
-              size="sm"
-              onClick={() =>
-                removeCustomerReviewImage(index)
-              }
-              className="absolute right-2 top-2"
-            >
-              Remove
-            </Button>
-          </div>
-        ))}
-      </div>
-    )}
-
-    {customerReviewImages.length === 0 && (
-      <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-        No customer review images uploaded yet.
-      </p>
-    )}
-
-  </CardContent>
-</Card>
+            {customerReviewImages.length === 0 && (
+              <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+                No customer review images uploaded yet.
+              </p>
+            )}
+          </CardContent>
+        </Card>
         {/* =====================================================
             SOCIAL MEDIA
         ====================================================== */}
@@ -1198,39 +1041,30 @@ async function removeCustomerReviewImage(index: number) {
             <CardTitle>Social Media</CardTitle>
 
             <p className="text-sm text-muted-foreground">
-              Add as many social media links as you like.
-              Each link can have its own name, URL and icon.
+              Add as many social media links as you like. Each link can have its
+              own name, URL and icon.
             </p>
           </CardHeader>
 
           <CardContent className="space-y-5">
-
             {/* ENABLE / DISABLE */}
 
             <label className="flex items-center gap-3">
               <input
                 type="checkbox"
                 checked={socialEnabled}
-                onChange={(event) =>
-                  setSocialEnabled(event.target.checked)
-                }
+                onChange={(event) => setSocialEnabled(event.target.checked)}
               />
 
-              <span className="font-medium">
-                Show social media on homepage
-              </span>
+              <span className="font-medium">Show social media on homepage</span>
             </label>
 
             {socialEnabled && (
               <div className="space-y-4">
-
                 {/* SOCIAL LINKS */}
 
                 {socialLinks.map((link, index) => (
-                  <div
-                    key={link.id}
-                    className="rounded-xl border p-4"
-                  >
+                  <div key={link.id} className="rounded-xl border p-4">
                     <div className="mb-4 flex items-center justify-between">
                       <span className="text-sm font-medium">
                         Social link {index + 1}
@@ -1240,24 +1074,17 @@ async function removeCustomerReviewImage(index: number) {
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() =>
-                          removeSocialLink(link.id)
-                        }
+                        onClick={() => removeSocialLink(link.id)}
                       >
                         Remove
                       </Button>
                     </div>
 
                     <div className="space-y-4">
-
                       {/* NAME */}
 
                       <div className="space-y-2">
-                        <Label
-                          htmlFor={`social-name-${link.id}`}
-                        >
-                          Name
-                        </Label>
+                        <Label htmlFor={`social-name-${link.id}`}>Name</Label>
 
                         <Input
                           id={`social-name-${link.id}`}
@@ -1276,22 +1103,14 @@ async function removeCustomerReviewImage(index: number) {
                       {/* URL */}
 
                       <div className="space-y-2">
-                        <Label
-                          htmlFor={`social-url-${link.id}`}
-                        >
-                          Link
-                        </Label>
+                        <Label htmlFor={`social-url-${link.id}`}>Link</Label>
 
                         <Input
                           id={`social-url-${link.id}`}
                           type="url"
                           value={link.url}
                           onChange={(event) =>
-                            updateSocialLink(
-                              link.id,
-                              "url",
-                              event.target.value,
-                            )
+                            updateSocialLink(link.id, "url", event.target.value)
                           }
                           placeholder="https://..."
                         />
@@ -1300,22 +1119,16 @@ async function removeCustomerReviewImage(index: number) {
                       {/* ICON */}
 
                       <div className="space-y-2">
-                        <Label>
-                          Icon
-                        </Label>
+                        <Label>Icon</Label>
 
                         <div className="flex items-center gap-4">
-
                           {/* CURRENT ICON */}
 
                           {link.icon_url ? (
                             <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full border">
                               <Image
                                 src={link.icon_url}
-                                alt={
-                                  link.name ||
-                                  "Social icon"
-                                }
+                                alt={link.name || "Social icon"}
                                 fill
                                 unoptimized
                                 className="object-cover"
@@ -1335,10 +1148,7 @@ async function removeCustomerReviewImage(index: number) {
                               type="file"
                               accept="image/*"
                               onChange={(event) =>
-                                uploadSocialIcon(
-                                  event,
-                                  link.id,
-                                )
+                                uploadSocialIcon(event, link.id)
                               }
                               disabled={uploading}
                             />
@@ -1349,10 +1159,8 @@ async function removeCustomerReviewImage(index: number) {
                                 : "Upload an icon image."}
                             </p>
                           </div>
-
                         </div>
                       </div>
-
                     </div>
                   </div>
                 ))}
@@ -1375,18 +1183,13 @@ async function removeCustomerReviewImage(index: number) {
                 )}
 
                 <p className="text-xs text-muted-foreground">
-                  You can add unlimited social links. The
-                  name you enter here will appear below the
-                  circular icon on the homepage.
+                  You can add unlimited social links. The name you enter here
+                  will appear below the circular icon on the homepage.
                 </p>
-
               </div>
             )}
-
           </CardContent>
         </Card>
-
-
 
         {/* =====================================================
             PAYMENT
@@ -1394,18 +1197,14 @@ async function removeCustomerReviewImage(index: number) {
 
         <Card>
           <CardHeader>
-            <CardTitle>
-              Payment Methods
-            </CardTitle>
+            <CardTitle>Payment Methods</CardTitle>
 
             <p className="text-sm text-muted-foreground">
-              Choose which manual payment methods
-              customers can use.
+              Choose which manual payment methods customers can use.
             </p>
           </CardHeader>
 
           <CardContent className="space-y-6">
-
             {/* TWINT */}
 
             <div className="space-y-3">
@@ -1413,32 +1212,20 @@ async function removeCustomerReviewImage(index: number) {
                 <input
                   type="checkbox"
                   checked={twintEnabled}
-                  onChange={(event) =>
-                    setTwintEnabled(
-                      event.target.checked,
-                    )
-                  }
+                  onChange={(event) => setTwintEnabled(event.target.checked)}
                 />
 
-                <span className="font-medium">
-                  Enable TWINT
-                </span>
+                <span className="font-medium">Enable TWINT</span>
               </label>
 
               {twintEnabled && (
                 <div className="space-y-2">
-                  <Label htmlFor="twint-phone">
-                    TWINT phone number
-                  </Label>
+                  <Label htmlFor="twint-phone">TWINT phone number</Label>
 
                   <Input
                     id="twint-phone"
                     value={twintPhone}
-                    onChange={(event) =>
-                      setTwintPhone(
-                        event.target.value,
-                      )
-                    }
+                    onChange={(event) => setTwintPhone(event.target.value)}
                     placeholder="+41 ..."
                   />
                 </div>
@@ -1453,58 +1240,41 @@ async function removeCustomerReviewImage(index: number) {
                   type="checkbox"
                   checked={bankTransferEnabled}
                   onChange={(event) =>
-                    setBankTransferEnabled(
-                      event.target.checked,
-                    )
+                    setBankTransferEnabled(event.target.checked)
                   }
                 />
 
-                <span className="font-medium">
-                  Enable Bank Transfer
-                </span>
+                <span className="font-medium">Enable Bank Transfer</span>
               </label>
 
               {bankTransferEnabled && (
                 <div className="space-y-4">
-
                   <div className="space-y-2">
-                    <Label htmlFor="bank-account-name">
-                      Account name
-                    </Label>
+                    <Label htmlFor="bank-account-name">Account name</Label>
 
                     <Input
                       id="bank-account-name"
                       value={bankAccountName}
                       onChange={(event) =>
-                        setBankAccountName(
-                          event.target.value,
-                        )
+                        setBankAccountName(event.target.value)
                       }
                       placeholder="Account holder name"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="bank-iban">
-                      IBAN
-                    </Label>
+                    <Label htmlFor="bank-iban">IBAN</Label>
 
                     <Input
                       id="bank-iban"
                       value={bankIban}
-                      onChange={(event) =>
-                        setBankIban(
-                          event.target.value,
-                        )
-                      }
+                      onChange={(event) => setBankIban(event.target.value)}
                       placeholder="CH..."
                     />
                   </div>
-
                 </div>
               )}
             </div>
-
           </CardContent>
         </Card>
 
@@ -1514,57 +1284,39 @@ async function removeCustomerReviewImage(index: number) {
 
         <Card>
           <CardHeader>
-            <CardTitle>
-              Shipping
-            </CardTitle>
+            <CardTitle>Shipping</CardTitle>
 
             <p className="text-sm text-muted-foreground">
-              Configure the shipping method and price
-              shown during checkout.
+              Configure the shipping method and price shown during checkout.
             </p>
           </CardHeader>
 
           <CardContent className="space-y-4">
-
             <label className="flex items-center gap-3">
               <input
                 type="checkbox"
                 checked={shippingEnabled}
-                onChange={(event) =>
-                  setShippingEnabled(
-                    event.target.checked,
-                  )
-                }
+                onChange={(event) => setShippingEnabled(event.target.checked)}
               />
 
-              <span className="font-medium">
-                Enable shipping
-              </span>
+              <span className="font-medium">Enable shipping</span>
             </label>
 
             {shippingEnabled && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="shipping-method">
-                    Shipping service
-                  </Label>
+                  <Label htmlFor="shipping-method">Shipping service</Label>
 
                   <Input
                     id="shipping-method"
                     value={shippingMethod}
-                    onChange={(event) =>
-                      setShippingMethod(
-                        event.target.value,
-                      )
-                    }
+                    onChange={(event) => setShippingMethod(event.target.value)}
                     placeholder="Swiss Post"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="shipping-price">
-                    Shipping price (CHF)
-                  </Label>
+                  <Label htmlFor="shipping-price">Shipping price (CHF)</Label>
 
                   <Input
                     id="shipping-price"
@@ -1572,11 +1324,7 @@ async function removeCustomerReviewImage(index: number) {
                     min="0"
                     step="0.01"
                     value={shippingPrice}
-                    onChange={(event) =>
-                      setShippingPrice(
-                        event.target.value,
-                      )
-                    }
+                    onChange={(event) => setShippingPrice(event.target.value)}
                     disabled={freeShipping}
                   />
                 </div>
@@ -1585,20 +1333,13 @@ async function removeCustomerReviewImage(index: number) {
                   <input
                     type="checkbox"
                     checked={freeShipping}
-                    onChange={(event) =>
-                      setFreeShipping(
-                        event.target.checked,
-                      )
-                    }
+                    onChange={(event) => setFreeShipping(event.target.checked)}
                   />
 
-                  <span className="font-medium">
-                    Free shipping
-                  </span>
+                  <span className="font-medium">Free shipping</span>
                 </label>
               </>
             )}
-
           </CardContent>
         </Card>
 
@@ -1608,102 +1349,65 @@ async function removeCustomerReviewImage(index: number) {
 
         <Card>
           <CardHeader>
-            <CardTitle>
-              Store / Admin Address
-            </CardTitle>
+            <CardTitle>Store / Admin Address</CardTitle>
 
             <p className="text-sm text-muted-foreground">
-              This address can later be used for shipping
-              and returns.
+              This address can later be used for shipping and returns.
             </p>
           </CardHeader>
 
           <CardContent className="space-y-4">
-
             <div className="space-y-2">
-              <Label htmlFor="store-name">
-                Store name
-              </Label>
+              <Label htmlFor="store-name">Store name</Label>
 
               <Input
                 id="store-name"
                 value={storeName}
-                onChange={(event) =>
-                  setStoreName(
-                    event.target.value,
-                  )
-                }
+                onChange={(event) => setStoreName(event.target.value)}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="store-address">
-                Address
-              </Label>
+              <Label htmlFor="store-address">Address</Label>
 
               <Input
                 id="store-address"
                 value={storeAddress}
-                onChange={(event) =>
-                  setStoreAddress(
-                    event.target.value,
-                  )
-                }
+                onChange={(event) => setStoreAddress(event.target.value)}
               />
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-
               <div className="space-y-2">
-                <Label htmlFor="store-postal-code">
-                  Postal code
-                </Label>
+                <Label htmlFor="store-postal-code">Postal code</Label>
 
                 <Input
                   id="store-postal-code"
                   value={storePostalCode}
-                  onChange={(event) =>
-                    setStorePostalCode(
-                      event.target.value,
-                    )
-                  }
+                  onChange={(event) => setStorePostalCode(event.target.value)}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="store-city">
-                  City
-                </Label>
+                <Label htmlFor="store-city">City</Label>
 
                 <Input
                   id="store-city"
                   value={storeCity}
-                  onChange={(event) =>
-                    setStoreCity(
-                      event.target.value,
-                    )
-                  }
+                  onChange={(event) => setStoreCity(event.target.value)}
                 />
               </div>
-
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="store-country">
-                Country
-              </Label>
+              <Label htmlFor="store-country">Country</Label>
 
               <Input
                 id="store-country"
                 value={storeCountry}
-                onChange={(event) =>
-                  setStoreCountry(
-                    event.target.value,
-                  )
-                }
+                onChange={(event) => setStoreCountry(event.target.value)}
               />
             </div>
-
           </CardContent>
         </Card>
 
@@ -1712,13 +1416,10 @@ async function removeCustomerReviewImage(index: number) {
         ====================================================== */}
 
         <div className="flex justify-end gap-3">
-
           <Button
             type="button"
             variant="outline"
-            onClick={() =>
-              router.push("/admin")
-            }
+            onClick={() => router.push("/admin")}
           >
             Cancel
           </Button>
@@ -1728,13 +1429,9 @@ async function removeCustomerReviewImage(index: number) {
             onClick={saveSettings}
             disabled={saving || uploading}
           >
-            {saving
-              ? "Saving..."
-              : "Save storefront"}
+            {saving ? "Saving..." : "Save storefront"}
           </Button>
-
         </div>
-
       </div>
     </main>
   );

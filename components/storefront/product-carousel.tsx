@@ -1,14 +1,8 @@
-
 "use client";
 
 import Image from "next/image";
 import Link from "next/link";
-import {
-  useEffect,
-  useRef,
-  useState,
-  type MouseEvent,
-} from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 
 type DisplaySettings = {
   price?: boolean;
@@ -25,8 +19,14 @@ export type CarouselProduct = {
   sticker?: string | null;
 };
 
-function ProductCard({ product }: { product: CarouselProduct }) {
-  const showPrice = product.display_settings?.price !== false;
+function ProductCard({
+  product,
+  catalogMode = false,
+}: {
+  product: CarouselProduct;
+  catalogMode?: boolean;
+}) {
+  const showPrice = !catalogMode && product.display_settings?.price !== false;
   const image = product.images?.[0];
 
   return (
@@ -79,10 +79,7 @@ function ProductCard({ product }: { product: CarouselProduct }) {
         </div>
 
         <div className="p-4">
-          <h4
-            className="truncate font-medium"
-            title={product.name}
-          >
+          <h4 className="truncate font-medium" title={product.name}>
             {product.name}
           </h4>
 
@@ -90,9 +87,7 @@ function ProductCard({ product }: { product: CarouselProduct }) {
             <div className="mt-1 text-sm">
               {product.sale_price != null ? (
                 <>
-                  <span>
-                    CHF {Number(product.sale_price).toFixed(2)}
-                  </span>
+                  <span>CHF {Number(product.sale_price).toFixed(2)}</span>
 
                   <span className="ml-2 text-muted-foreground line-through">
                     CHF {Number(product.price).toFixed(2)}
@@ -111,8 +106,10 @@ function ProductCard({ product }: { product: CarouselProduct }) {
 
 export function ProductCarousel({
   products,
+  catalogMode = false,
 }: {
   products: CarouselProduct[];
+  catalogMode?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -164,12 +161,10 @@ export function ProductCarousel({
         }
       }
 
-      animationFrame.current =
-        requestAnimationFrame(animate);
+      animationFrame.current = requestAnimationFrame(animate);
     };
 
-    animationFrame.current =
-      requestAnimationFrame(animate);
+    animationFrame.current = requestAnimationFrame(animate);
 
     return () => {
       if (animationFrame.current !== null) {
@@ -181,9 +176,7 @@ export function ProductCarousel({
   /*
    * Mouse drag — desktop.
    */
-  function handleMouseDown(
-    event: MouseEvent<HTMLDivElement>,
-  ) {
+  function handleMouseDown(event: MouseEvent<HTMLDivElement>) {
     const container = containerRef.current;
 
     if (!container) return;
@@ -196,24 +189,19 @@ export function ProductCarousel({
     startScrollLeft.current = container.scrollLeft;
   }
 
-  function handleMouseMove(
-    event: MouseEvent<HTMLDivElement>,
-  ) {
+  function handleMouseMove(event: MouseEvent<HTMLDivElement>) {
     const container = containerRef.current;
 
     if (!container || !mouseDown.current) return;
 
-    const distance =
-      event.clientX - startX.current;
+    const distance = event.clientX - startX.current;
 
-    container.scrollLeft =
-      startScrollLeft.current - distance;
+    container.scrollLeft = startScrollLeft.current - distance;
 
     /*
      * Keep manual dragging seamless.
      */
-    const halfWidth =
-      container.scrollWidth / 2;
+    const halfWidth = container.scrollWidth / 2;
 
     if (container.scrollLeft >= halfWidth) {
       container.scrollLeft -= halfWidth;
@@ -246,9 +234,7 @@ export function ProductCarousel({
     <div
       ref={containerRef}
       className={`relative overflow-x-auto overflow-y-hidden scrollbar-none ${
-        dragging
-          ? "cursor-grabbing"
-          : "cursor-grab"
+        dragging ? "cursor-grabbing" : "cursor-grab"
       }`}
       onMouseEnter={() => {
         if (!dragging) {
@@ -272,6 +258,7 @@ export function ProductCarousel({
           <ProductCard
             key={`${product.id}-${index}`}
             product={product}
+            catalogMode={catalogMode}
           />
         ))}
       </div>

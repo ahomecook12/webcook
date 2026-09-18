@@ -19,13 +19,7 @@ export default async function AdminPage() {
   return (
     <main className="mx-auto w-5xl px-4 py-8">
       <div className="flex items-center justify-between gap-4">
-        <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-        <Link
-          href="/"
-          className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted"
-        >
-          View store
-        </Link>
+        <h1 className="text-3xl font-bold">Admin Dashboard</h1>       
       </div>
 
       <p className="mt-2 text-muted-foreground">Manage your shop</p>

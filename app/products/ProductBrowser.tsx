@@ -37,10 +37,12 @@ export default function ProductBrowser({
   products,
   categories,
   initialCategory,
+  catalogMode = false,
 }: {
   products: Product[];
   categories: Category[];
   initialCategory?: string;
+  catalogMode?: boolean;
 }) {
   const [selectedCategory, setSelectedCategory] = useState(
     initialCategory || "all",
@@ -99,77 +101,60 @@ export default function ProductBrowser({
     }
   };
 
- const filteredProducts = useMemo(() => {
-  const searchTerm = search.trim().toLowerCase();
+  const filteredProducts = useMemo(() => {
+    const searchTerm = search.trim().toLowerCase();
 
-  const result = products.filter((product) => {
-    const matchesCategory =
-      selectedCategory === "all" ||
-      product.categoryIds.includes(selectedCategory);
+    const result = products.filter((product) => {
+      const matchesCategory =
+        selectedCategory === "all" ||
+        product.categoryIds.includes(selectedCategory);
+
+      /*
+       * If AI search is active, let AI decide which products match.
+       * Do NOT apply normal text matching as well.
+       */
+      if (aiProductIds !== null) {
+        return matchesCategory && aiProductIds.includes(product.id);
+      }
+
+      /*
+       * Normal search
+       */
+      const keywordText = (product.keywords ?? []).join(" ");
+
+      const matchesSearch =
+        !searchTerm ||
+        product.name.toLowerCase().includes(searchTerm) ||
+        (product.description ?? "").toLowerCase().includes(searchTerm) ||
+        keywordText.toLowerCase().includes(searchTerm);
+
+      return matchesCategory && matchesSearch;
+    });
 
     /*
-     * If AI search is active, let AI decide which products match.
-     * Do NOT apply normal text matching as well.
+     * Sorting
      */
-    if (aiProductIds !== null) {
-      return (
-        matchesCategory &&
-        aiProductIds.includes(product.id)
-      );
-    }
+    return [...result].sort((a, b) => {
+      switch (sortBy) {
+        case "most-expensive":
+          return (b.sale_price ?? b.price) - (a.sale_price ?? a.price);
 
-    /*
-     * Normal search
-     */
-    const keywordText = (product.keywords ?? []).join(" ");
+        case "least-expensive":
+          return (a.sale_price ?? a.price) - (b.sale_price ?? b.price);
 
-    const matchesSearch =
-      !searchTerm ||
-      product.name.toLowerCase().includes(searchTerm) ||
-      (product.description ?? "").toLowerCase().includes(searchTerm) ||
-      keywordText.toLowerCase().includes(searchTerm);
+        case "oldest":
+          return (
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          );
 
-    return matchesCategory && matchesSearch;
-  });
-
-  /*
-   * Sorting
-   */
-  return [...result].sort((a, b) => {
-    switch (sortBy) {
-      case "most-expensive":
-        return (
-          (b.sale_price ?? b.price) -
-          (a.sale_price ?? a.price)
-        );
-
-      case "least-expensive":
-        return (
-          (a.sale_price ?? a.price) -
-          (b.sale_price ?? b.price)
-        );
-
-      case "oldest":
-        return (
-          new Date(a.created_at).getTime() -
-          new Date(b.created_at).getTime()
-        );
-
-      case "newest":
-      default:
-        return (
-          new Date(b.created_at).getTime() -
-          new Date(a.created_at).getTime()
-        );
-    }
-  });
-}, [
-  products,
-  selectedCategory,
-  search,
-  sortBy,
-  aiProductIds,
-]);
+        case "newest":
+        default:
+          return (
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
+      }
+    });
+  }, [products, selectedCategory, search, sortBy, aiProductIds]);
 
   return (
     <div className="mt-8">
@@ -215,6 +200,7 @@ export default function ProductBrowser({
           </Button>
         </div>
 
+            {!catalogMode && (
         <Select
           value={sortBy}
           onValueChange={(value) => {
@@ -254,7 +240,8 @@ export default function ProductBrowser({
               Oldest
             </SelectItem>
           </SelectContent>
-        </Select>
+        </Select> 
+            )}
       </div>
 
       {aiUnavailable && (
@@ -263,25 +250,25 @@ export default function ProductBrowser({
         </p>
       )}
 
-    {aiProductIds !== null && (
-  <div className="mt-3 flex items-center gap-3">
-    <p className="text-sm text-muted-foreground">
-      ✨ AI search found {aiProductIds.length}{" "}
-      {aiProductIds.length === 1 ? "product" : "products"}.
-    </p>
+      {aiProductIds !== null && (
+        <div className="mt-3 flex items-center gap-3">
+          <p className="text-sm text-muted-foreground">
+            ✨ AI search found {aiProductIds.length}{" "}
+            {aiProductIds.length === 1 ? "product" : "products"}.
+          </p>
 
-    <button
-      type="button"
-      onClick={() => {
-        setAiProductIds(null);
-        setSearch("");
-      }}
-      className="text-sm font-medium text-primary hover:underline"
-    >
-      × Clear AI search
-    </button>
-  </div>
-)}
+          <button
+            type="button"
+            onClick={() => {
+              setAiProductIds(null);
+              setSearch("");
+            }}
+            className="text-sm font-medium text-primary hover:underline"
+          >
+            × Clear AI search
+          </button>
+        </div>
+      )}
 
       {/* Categories */}
       <div className="mt-6 -mx-4 overflow-x-auto px-4 sm:-mx-6 sm:px-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -379,21 +366,22 @@ export default function ProductBrowser({
                     {product.name}
                   </h2>
 
-                  {isOnSale ? (
-                    <div className="mt-1.5 flex items-baseline gap-2">
-                      <span className="text-md font-bold">
-                        CHF {product.sale_price!.toFixed(2)}
-                      </span>
+                  {!catalogMode &&
+                    (isOnSale ? (
+                      <div className="mt-1.5 flex items-baseline gap-2">
+                        <span className="text-md font-bold">
+                          CHF {product.sale_price!.toFixed(2)}
+                        </span>
 
-                      <span className="text-md text-muted-foreground line-through">
+                        <span className="text-md text-muted-foreground line-through">
+                          CHF {product.price.toFixed(2)}
+                        </span>
+                      </div>
+                    ) : (
+                      <p className="mt-1.5 text-md font-bold">
                         CHF {product.price.toFixed(2)}
-                      </span>
-                    </div>
-                  ) : (
-                    <p className="mt-1.5 text-md font-bold">
-                      CHF {product.price.toFixed(2)}
-                    </p>
-                  )}
+                      </p>
+                    ))}
                 </div>
               </Link>
             );

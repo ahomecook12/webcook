@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import ProductBrowser from "./ProductBrowser";
 
-
 export default async function ProductsPage({
   searchParams,
 }: PageProps<"/products">) {
@@ -10,12 +9,13 @@ export default async function ProductsPage({
 
   const supabase = await createClient();
 
- const [
-  { data: products, error: productsError },
-  { data: categories, error: categoriesError },
-] = await Promise.all([
-  supabase
-    .from("products")
+  const [
+    { data: products, error: productsError },
+    { data: categories, error: categoriesError },
+     { data: siteSettings },
+  ] = await Promise.all([
+    supabase
+      .from("products")
       .select(
         `
           id,
@@ -39,6 +39,12 @@ export default async function ProductsPage({
       .eq("is_active", true)
       .order("sort_order")
       .order("name"),
+
+    supabase
+      .from("site_settings")
+      .select("catalog_mode")
+      .eq("id", true)
+      .maybeSingle(),
   ]);
 
   if (productsError) {
@@ -48,8 +54,6 @@ export default async function ProductsPage({
   if (categoriesError) {
     console.error("Categories loading error:", categoriesError);
   }
-
- 
 
   const formattedProducts = (products ?? []).map((product) => ({
     id: product.id,
@@ -72,8 +76,6 @@ export default async function ProductsPage({
 
   return (
     <main className="min-h-screen bg-background">
-      
-
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         <h1 className="text-3xl font-semibold tracking-tight">Products</h1>
 
@@ -85,6 +87,7 @@ export default async function ProductsPage({
           products={formattedProducts}
           categories={categories ?? []}
           initialCategory={selectedCategory?.id}
+          catalogMode={siteSettings?.catalog_mode ?? false}
         />
       </div>
     </main>

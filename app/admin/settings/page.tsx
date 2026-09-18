@@ -20,7 +20,7 @@ export default async function SiteSettingsPage() {
       supabase
         .from("site_settings")
         .select(
-          "theme, hero_title, hero_description, hero_media, homepage_category_ids, customer_review_images",
+          "theme, hero_title, hero_description, hero_media, homepage_category_ids, customer_review_images, catalog_mode",
         )
         .eq("id", true)
         .maybeSingle(),
