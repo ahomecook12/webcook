@@ -665,7 +665,7 @@ export async function POST(request: Request) {
         const pushPromises =
           pushTokens.map(async (pushToken) => {
             const pushData = {
-              type: "order",
+              type: "admin_order",
               order_id: order.id,
             };
 
