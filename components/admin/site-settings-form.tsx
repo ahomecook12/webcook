@@ -127,6 +127,7 @@ export function SiteSettingsForm({
   const [homepageCategoryIds, setHomepageCategoryIds] = useState<string[]>(
     settings?.homepage_category_ids ?? [],
   );
+  const [youtubeUrl, setYoutubeUrl] = useState("");
 
   /*
    * ---------------------------------------------------------
@@ -319,7 +320,39 @@ export function SiteSettingsForm({
       );
     }
   }
+  function addYouTubeHero() {
+    const url = youtubeUrl.trim();
 
+    if (!url) {
+      alert("Please enter a YouTube URL.");
+      return;
+    }
+
+    try {
+      const parsed = new URL(url);
+
+      const isYouTube =
+        parsed.hostname.includes("youtube.com") ||
+        parsed.hostname === "youtu.be";
+
+      if (!isYouTube) {
+        alert("Please enter a valid YouTube URL.");
+        return;
+      }
+
+      setMedia((current) => [
+        ...current,
+        {
+          url,
+          type: "youtube",
+        },
+      ]);
+
+      setYoutubeUrl("");
+    } catch {
+      alert("Please enter a valid YouTube URL.");
+    }
+  }
   /*
    * ---------------------------------------------------------
    * HERO MEDIA UPLOAD
@@ -336,8 +369,14 @@ export function SiteSettingsForm({
     setUploading(true);
 
     try {
+      const imageFiles = files.filter((file) => file.type.startsWith("image/"));
+
+      if (imageFiles.length !== files.length) {
+        throw new Error("Hero media can only contain images.");
+      }
+
       const uploaded = await Promise.all(
-        files.map(async (file) => {
+        imageFiles.map(async (file) => {
           const body = new FormData();
 
           body.append("file", file);
@@ -351,25 +390,26 @@ export function SiteSettingsForm({
           const data = await response.json();
 
           if (!response.ok) {
-            throw new Error(data.error || "Media upload failed.");
+            throw new Error(data.error || "Hero image upload failed.");
           }
 
           return {
             url: data.url as string,
-            type: file.type.startsWith("video/")
-              ? ("video" as const)
-              : ("image" as const),
+            type: "image" as const,
           };
         }),
       );
 
       setMedia((current) => [...current, ...uploaded]);
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Media upload failed.");
+      alert(
+        error instanceof Error ? error.message : "Hero image upload failed.",
+      );
     } finally {
       setUploading(false);
     }
   }
+
   async function uploadCustomerReviewImages(
     event: React.ChangeEvent<HTMLInputElement>,
   ) {
@@ -710,14 +750,12 @@ export function SiteSettingsForm({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="hero-upload">
-                Upload images or videos (Max 4.5 MB each)
-              </Label>
+              <Label htmlFor="hero-upload">Upload hero images</Label>
 
               <Input
                 id="hero-upload"
                 type="file"
-                accept="image/*,video/*"
+                accept="image/*"
                 multiple
                 onChange={uploadHeroMedia}
                 disabled={uploading}
@@ -726,7 +764,7 @@ export function SiteSettingsForm({
               <p className="text-sm text-muted-foreground">
                 {uploading
                   ? "Uploading to Cloudinary..."
-                  : "Files are uploaded to Cloudinary; only their URLs and media type are saved in Supabase."}
+                  : "Upload images only. Images are stored in Cloudinary; only their URLs are saved in Supabase."}
               </p>
             </div>
 
@@ -737,22 +775,14 @@ export function SiteSettingsForm({
                     key={`${item.url}-${index}`}
                     className="relative w-48 shrink-0 overflow-hidden rounded-lg border"
                   >
-                    {item.type === "video" ? (
-                      <video
-                        src={item.url}
-                        controls
-                        className="aspect-square w-full object-cover"
-                      />
-                    ) : (
-                      <Image
-                        src={item.url}
-                        alt={`Hero media ${index + 1}`}
-                        width={300}
-                        height={300}
-                        unoptimized
-                        className="aspect-square w-full object-cover"
-                      />
-                    )}
+                    <Image
+                      src={item.url}
+                      alt={`Hero image ${index + 1}`}
+                      width={300}
+                      height={300}
+                      unoptimized
+                      className="aspect-square w-full object-cover"
+                    />
 
                     <Button
                       type="button"
@@ -771,6 +801,32 @@ export function SiteSettingsForm({
                 ))}
               </div>
             )}
+            <div className="space-y-2">
+              <Label htmlFor="youtube-hero-url">Add YouTube video</Label>
+
+              <div className="flex gap-2">
+                <Input
+                  id="youtube-hero-url"
+                  type="url"
+                  placeholder="https://www.youtube.com/watch?v=..."
+                  value={youtubeUrl}
+                  onChange={(event) => setYoutubeUrl(event.target.value)}
+                />
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={addYouTubeHero}
+                >
+                  Add
+                </Button>
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                YouTube videos are embedded only when a customer clicks the play
+                button.
+              </p>
+            </div>
           </CardContent>
         </Card>
 
