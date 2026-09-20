@@ -89,7 +89,7 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log("Deleting Cloudinary image:", publicId);
+    //console.log("Deleting Cloudinary image:", publicId);
 
     // -------------------------------------------------------
     // Delete from Cloudinary
@@ -99,7 +99,7 @@ export async function POST(request: Request) {
       resource_type: "image",
     });
 
-    console.log("Cloudinary delete result:", result);
+    //console.log("Cloudinary delete result:", result);
 
     if (
       result.result !== "ok" &&

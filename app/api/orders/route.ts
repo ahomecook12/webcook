@@ -51,10 +51,7 @@ async function sendExpoPushNotification({
       return null;
     }
 
-    console.log(
-      "✅ Expo push notification sent:",
-      result,
-    );
+   // console.log(      "✅ Expo push notification sent:",      result,    );
 
     return result;
   } catch (error) {

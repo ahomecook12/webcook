@@ -23,7 +23,7 @@ export async function GET(request: Request) {
         error
       );
     } else {
-      console.log("[auth/callback] Google session created successfully");
+      //console.log("[auth/callback] Google session created successfully");
       return NextResponse.redirect(`${origin}${next}`);
     }
   } else {

@@ -28,7 +28,9 @@ type NotificationBellProps = {
   userId: string;
 };
 
-export default function NotificationBell({ userId }: NotificationBellProps) {
+export default function NotificationBell({
+  userId,
+}: NotificationBellProps) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loaded, setLoaded] = useState(false);
@@ -72,17 +74,14 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
     void loadNotifications();
 
     function handleOrderCompleted() {
-  void loadNotifications();
-}
+      void loadNotifications();
+    }
 
-window.addEventListener(
-  "order-completed",
-  handleOrderCompleted,
-);
+    window.addEventListener("order-completed", handleOrderCompleted);
 
     /* =========================================================
-     REALTIME — Listen for new notifications
-     ========================================================= */
+       REALTIME — Listen for new notifications
+       ========================================================= */
 
     const channel = supabase
       .channel(`notifications-${userId}`)
@@ -105,7 +104,8 @@ window.addEventListener(
             /* Prevent duplicates */
             if (
               current.some(
-                (notification) => notification.id === newNotification.id,
+                (notification) =>
+                  notification.id === newNotification.id,
               )
             ) {
               return current;
@@ -123,10 +123,12 @@ window.addEventListener(
 
     return () => {
       cancelled = true;
-window.removeEventListener(
-  "order-completed",
-  handleOrderCompleted,
-);
+
+      window.removeEventListener(
+        "order-completed",
+        handleOrderCompleted,
+      );
+
       void supabase.removeChannel(channel);
     };
   }, [userId]);
@@ -222,7 +224,14 @@ window.removeEventListener(
         }
       />
 
-      <DropdownMenuContent align="end" className="w-80 bg-background">
+      <DropdownMenuContent
+        align="end"
+        className="w-80 bg-background"
+      >
+        {/* =====================================================
+            HEADER
+            ===================================================== */}
+
         <div className="flex items-center justify-between px-3 py-2">
           <div>
             <p className="font-semibold">Notifications</p>
@@ -247,6 +256,10 @@ window.removeEventListener(
 
         <DropdownMenuSeparator />
 
+        {/* =====================================================
+            NOTIFICATIONS
+            ===================================================== */}
+
         {!loaded ? (
           <div className="px-4 py-6 text-center">
             <p className="text-sm text-muted-foreground">
@@ -268,7 +281,9 @@ window.removeEventListener(
                 <div className="flex items-start justify-between gap-3">
                   <p
                     className={`text-sm ${
-                      !notification.read_at ? "font-semibold" : "font-medium"
+                      !notification.read_at
+                        ? "font-semibold"
+                        : "font-medium"
                     }`}
                   >
                     {notification.title}
@@ -284,14 +299,13 @@ window.removeEventListener(
                 </p>
 
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  {new Date(notification.created_at).toLocaleDateString(
-                    "en-CH",
-                    {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    },
-                  )}
+                  {new Date(
+                    notification.created_at,
+                  ).toLocaleDateString("en-CH", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })}
                 </p>
               </div>
             );
@@ -317,7 +331,9 @@ window.removeEventListener(
                     />
                   }
                 >
-                  <div className="w-full px-3 py-3">{content}</div>
+                  <div className="w-full px-3 py-3">
+                    {content}
+                  </div>
                 </DropdownMenuItem>
               );
             }
@@ -330,21 +346,36 @@ window.removeEventListener(
                 }`}
                 onClick={() => void markAsRead(notification)}
               >
-                <div className="w-full px-3 py-3">{content}</div>
+                <div className="w-full px-3 py-3">
+                  {content}
+                </div>
               </DropdownMenuItem>
             );
           })
         )}
 
+        {/* =====================================================
+            FOOTER
+            ===================================================== */}
+
         {notifications.length > 0 && (
           <>
             <DropdownMenuSeparator />
 
-            <div className="px-3 py-2 text-center">
+            <div className="px-3 py-2">
               <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
                 <Check className="h-3 w-3" />
                 Showing latest 10
               </div>
+
+              <DropdownMenuItem
+                className="mt-1 w-full cursor-pointer justify-center p-0"
+                render={<Link href="/notifications" />}
+              >
+                <span className="w-full rounded-sm px-3 py-2 text-center text-sm font-medium text-primary hover:bg-muted">
+                  Open all notifications
+                </span>
+              </DropdownMenuItem>
             </div>
           </>
         )}

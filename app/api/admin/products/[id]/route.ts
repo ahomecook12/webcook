@@ -86,10 +86,7 @@ export async function DELETE(
         resource_type: "image",
       });
 
-      console.log(
-        `Cloudinary delete ${publicId}:`,
-        result.result,
-      );
+    //  console.log(        `Cloudinary delete ${publicId}:`,        result.result,      );
     } catch (error) {
       // Do not prevent product deletion if Cloudinary cleanup fails
       console.error(
