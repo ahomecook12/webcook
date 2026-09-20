@@ -6,16 +6,18 @@ import { CalendarPlus, Loader2, X } from "lucide-react";
 type AddToCalendarDialogProps = {
   orderId: string;
   orderNumber: string;
+  orderCreatedAt: string;
 };
 
 export default function AddToCalendarDialog({
   orderId,
   orderNumber,
+  orderCreatedAt,
 }: AddToCalendarDialogProps) {
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState("");
-  const [startTime, setStartTime] = useState("10:00");
-  const [endTime, setEndTime] = useState("11:00");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
@@ -25,15 +27,56 @@ export default function AddToCalendarDialog({
     setSuccess(false);
 
     /*
-     * Default to today's date.
+     * Default the calendar event to the order creation date/time.
+     *
+     * The user can still change both date and time before adding
+     * the event to Google Calendar.
      */
-    const today = new Date();
+    const createdAt = new Date(orderCreatedAt);
 
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, "0");
-    const dd = String(today.getDate()).padStart(2, "0");
+    if (!Number.isNaN(createdAt.getTime())) {
+      const yyyy = createdAt.getFullYear();
+      const mm = String(createdAt.getMonth() + 1).padStart(2, "0");
+      const dd = String(createdAt.getDate()).padStart(2, "0");
 
-    setDate(`${yyyy}-${mm}-${dd}`);
+      const hours = String(createdAt.getHours()).padStart(2, "0");
+      const minutes = String(createdAt.getMinutes()).padStart(2, "0");
+
+      setDate(`${yyyy}-${mm}-${dd}`);
+      setStartTime(`${hours}:${minutes}`);
+
+      /*
+       * Default duration: 1 hour.
+       */
+      const end = new Date(createdAt.getTime() + 60 * 60 * 1000);
+
+      const endHours = String(end.getHours()).padStart(2, "0");
+      const endMinutes = String(end.getMinutes()).padStart(2, "0");
+
+      setEndTime(`${endHours}:${endMinutes}`);
+    } else {
+      /*
+       * Fallback if created_at is somehow invalid.
+       */
+      const now = new Date();
+
+      const yyyy = now.getFullYear();
+      const mm = String(now.getMonth() + 1).padStart(2, "0");
+      const dd = String(now.getDate()).padStart(2, "0");
+
+      const hours = String(now.getHours()).padStart(2, "0");
+      const minutes = String(now.getMinutes()).padStart(2, "0");
+
+      setDate(`${yyyy}-${mm}-${dd}`);
+      setStartTime(`${hours}:${minutes}`);
+
+      const end = new Date(now.getTime() + 60 * 60 * 1000);
+
+      const endHours = String(end.getHours()).padStart(2, "0");
+      const endMinutes = String(end.getMinutes()).padStart(2, "0");
+
+      setEndTime(`${endHours}:${endMinutes}`);
+    }
 
     setOpen(true);
   }
@@ -69,7 +112,10 @@ export default function AddToCalendarDialog({
     const start = new Date(`${date}T${startTime}`);
     const end = new Date(`${date}T${endTime}`);
 
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    if (
+      Number.isNaN(start.getTime()) ||
+      Number.isNaN(end.getTime())
+    ) {
       setError("Please enter a valid date and time.");
       return;
     }
@@ -108,7 +154,10 @@ export default function AddToCalendarDialog({
 
       setSuccess(true);
     } catch (error) {
-      console.error("Calendar event creation failed:", error);
+      console.error(
+        "Calendar event creation failed:",
+        error,
+      );
 
       setError(
         error instanceof Error
@@ -122,9 +171,7 @@ export default function AddToCalendarDialog({
 
   return (
     <>
-      {/* =====================================================
-          OPEN BUTTON
-          ===================================================== */}
+      {/* OPEN BUTTON */}
 
       <button
         type="button"
@@ -136,9 +183,7 @@ export default function AddToCalendarDialog({
         Add to Google Calendar
       </button>
 
-      {/* =====================================================
-          MODAL
-          ===================================================== */}
+      {/* MODAL */}
 
       {open && (
         <div
@@ -155,9 +200,7 @@ export default function AddToCalendarDialog({
             aria-modal="true"
             aria-labelledby="calendar-dialog-title"
           >
-            {/* =================================================
-                HEADER
-                ================================================= */}
+            {/* HEADER */}
 
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -188,9 +231,7 @@ export default function AddToCalendarDialog({
               </button>
             </div>
 
-            {/* =================================================
-                SUCCESS
-                ================================================= */}
+            {/* SUCCESS */}
 
             {success ? (
               <div className="mt-6 rounded-lg border border-primary/30 bg-muted/30 p-4">
@@ -213,9 +254,7 @@ export default function AddToCalendarDialog({
               </div>
             ) : (
               <>
-                {/* =============================================
-                    FORM
-                    ============================================= */}
+                {/* FORM */}
 
                 <div className="mt-6 space-y-4">
                   {/* DATE */}
@@ -283,6 +322,12 @@ export default function AddToCalendarDialog({
                       />
                     </div>
                   </div>
+
+                  <p className="text-xs text-muted-foreground">
+                    The date and start time are pre-filled with the
+                    order creation time. You can change them before
+                    adding the event.
+                  </p>
 
                   {/* ERROR */}
 

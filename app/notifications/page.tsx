@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Bell, CalendarPlus } from "lucide-react";
+import { Bell } from "lucide-react";
+
 import AddToCalendarDialog from "@/components/notifications/add-to-calendar-dialog";
 import { createClient } from "@/lib/supabase/server";
-import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
 type Notification = {
   id: string;
@@ -13,6 +13,12 @@ type Notification = {
   order_id: string | null;
   product_id: string | null;
   read_at: string | null;
+  created_at: string;
+};
+
+type OrderInfo = {
+  id: string;
+  order_number: string;
   created_at: string;
 };
 
@@ -40,7 +46,10 @@ export default async function NotificationsPage() {
     .order("created_at", { ascending: false });
 
   if (error) {
-    console.error("Failed to load notifications:", error);
+    console.error(
+      "Failed to load notifications:",
+      error,
+    );
   }
 
   const items = (notifications ?? []) as Notification[];
@@ -49,47 +58,66 @@ export default async function NotificationsPage() {
      CHECK ACTUAL ADMIN ROLE
      ========================================================= */
 
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
+  const { data: profile, error: profileError } =
+    await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
 
   if (profileError) {
-    console.error("Failed to load user profile:", profileError);
+    console.error(
+      "Failed to load user profile:",
+      profileError,
+    );
   }
 
   const isAdmin = profile?.role === "admin";
 
   /* =========================================================
-     CHECK GOOGLE CALENDAR CONNECTION
-     
-     google_calendar_tokens has RLS that intentionally prevents
-     normal users from reading the refresh token.
+     LOAD ORDER CREATION TIMES
 
-     Therefore we use the service-role client on the server
-     only to check whether a token row exists for this user.
-     We NEVER send the refresh token to the browser.
+     Only needed for admin new-order notifications.
      ========================================================= */
 
-  let calendarConnected = false;
+  const calendarOrderIds = isAdmin
+    ? Array.from(
+        new Set(
+          items
+            .filter(
+              (notification) =>
+                notification.type === "admin_order_placed" &&
+                notification.order_id,
+            )
+            .map(
+              (notification) =>
+                notification.order_id as string,
+            ),
+        ),
+      )
+    : [];
 
-  if (isAdmin) {
-    const serviceSupabase = createServiceRoleClient();
+  let ordersById = new Map<string, OrderInfo>();
 
-    const { data: calendarToken, error: calendarError } = await serviceSupabase
-      .from("google_calendar_tokens")
-      .select("user_id")
-      .eq("user_id", user.id)
-      .maybeSingle();
+  if (calendarOrderIds.length > 0) {
+    const { data: orders, error: ordersError } =
+      await supabase
+        .from("orders")
+        .select("id, order_number, created_at")
+        .in("id", calendarOrderIds);
 
-    if (calendarError) {
+    if (ordersError) {
       console.error(
-        "Failed to check Google Calendar connection:",
-        calendarError,
+        "Failed to load order creation times:",
+        ordersError,
       );
     } else {
-      calendarConnected = !!calendarToken;
+      ordersById = new Map(
+        (orders ?? []).map((order) => [
+          order.id,
+          order as OrderInfo,
+        ]),
+      );
     }
   }
 
@@ -103,7 +131,9 @@ export default async function NotificationsPage() {
         <div className="flex items-center gap-2">
           <Bell className="h-5 w-5" />
 
-          <h1 className="text-2xl font-semibold">Notifications</h1>
+          <h1 className="text-2xl font-semibold">
+            Notifications
+          </h1>
         </div>
 
         <p className="mt-1 text-sm text-muted-foreground">
@@ -126,7 +156,8 @@ export default async function NotificationsPage() {
       ) : (
         <div className="space-y-3">
           {items.map((notification) => {
-            const isAdminNotification = notification.type.startsWith("admin_");
+            const isAdminNotification =
+              notification.type.startsWith("admin_");
 
             const orderHref = notification.order_id
               ? isAdminNotification
@@ -137,11 +168,17 @@ export default async function NotificationsPage() {
             const isNewOrderNotification =
               notification.type === "admin_order_placed";
 
+            const calendarOrder = notification.order_id
+              ? ordersById.get(notification.order_id)
+              : undefined;
+
             return (
               <div
                 key={notification.id}
                 className={`rounded-lg border bg-background p-4 ${
-                  !notification.read_at ? "border-primary/30 bg-muted/30" : ""
+                  !notification.read_at
+                    ? "border-primary/30 bg-muted/30"
+                    : ""
                 }`}
               >
                 {/* =================================================
@@ -154,9 +191,7 @@ export default async function NotificationsPage() {
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    {/* =================================================
-                        TITLE
-                        ================================================= */}
+                    {/* TITLE */}
 
                     <div className="flex items-start justify-between gap-3">
                       <h2
@@ -174,36 +209,28 @@ export default async function NotificationsPage() {
                       )}
                     </div>
 
-                    {/* =================================================
-                        MESSAGE
-                        ================================================= */}
+                    {/* MESSAGE */}
 
                     <p className="mt-1 text-sm text-muted-foreground">
                       {notification.message}
                     </p>
 
-                    {/* =================================================
-                        DATE
-                        ================================================= */}
+                    {/* DATE */}
 
                     <p className="mt-2 text-xs text-muted-foreground">
-                      {new Date(notification.created_at).toLocaleString(
-                        "en-CH",
-                        {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        },
-                      )}
+                      {new Date(
+                        notification.created_at,
+                      ).toLocaleString("en-CH", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </p>
 
                     {/* =================================================
                         ORDER LINK
-
-                        ONLY THIS LINK OPENS THE ORDER.
-                        The notification card itself is NOT clickable.
                         ================================================= */}
 
                     {orderHref && (
@@ -219,27 +246,27 @@ export default async function NotificationsPage() {
 
                     {/* =================================================
                         GOOGLE CALENDAR
-
-                        Only admin + new-order notifications get
-                        calendar functionality.
                         ================================================= */}
 
                     {isAdmin &&
                       isNewOrderNotification &&
-                      notification.order_id && (
+                      notification.order_id &&
+                      calendarOrder && (
                         <div className="mt-4 border-t pt-4">
                           <AddToCalendarDialog
                             orderId={notification.order_id}
                             orderNumber={
-                              notification.message.match(
-                                /order ([A-Za-z0-9-]+)/,
-                              )?.[1] ?? "Unknown"
+                              calendarOrder.order_number
+                            }
+                            orderCreatedAt={
+                              calendarOrder.created_at
                             }
                           />
 
                           <p className="mt-1 text-xs text-muted-foreground">
-                            Choose when you want this order added to your Google
-                            Calendar.
+                            The order creation time is suggested
+                            automatically. You can change the date
+                            or time before adding it.
                           </p>
                         </div>
                       )}

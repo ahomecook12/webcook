@@ -5,7 +5,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { createGoogleCalendarEvent } from "@/lib/google-calendar";
 
 export async function POST(request: Request) {
-  const url = new URL(request.url);
+ // const url = new URL(request.url);
 
   /* =========================================================
      REQUIRE ADMIN
@@ -228,37 +228,42 @@ export async function POST(request: Request) {
      BUILD EVENT DESCRIPTION
      ========================================================= */
 
-  const itemLines =
-    orderItems && orderItems.length > 0
-      ? orderItems.map(
-          (item) =>
-            `• ${item.product_name} × ${item.quantity}`,
-        )
-      : [];
+  // const itemLines =
+  //   orderItems && orderItems.length > 0
+  //     ? orderItems.map(
+  //         (item) =>
+  //           `• ${item.product_name} × ${item.quantity}`,
+  //       )
+  //     : [];
 
-  const description = [
-    `Order: ${order.order_number}`,
-    "",
-    `Customer: ${order.shipping_name}`,
-    `Phone: ${order.shipping_phone}`,
-    "",
-    "Address:",
-    order.shipping_address,
-    `${order.shipping_postal_code} ${order.shipping_city}`,
-    order.shipping_country,
-    "",
-    itemLines.length > 0 ? "Items:" : "",
-    ...itemLines,
-    "",
-    `Payment: ${order.payment_method}`,
-    `Payment status: ${order.payment_status}`,
-    `Total: CHF ${Number(order.total).toFixed(2)}`,
-    order.customer_note
-      ? `\nCustomer note: ${order.customer_note}`
-      : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
+ const description = [
+  "\n",
+  `Order ${order.order_number}`,
+  "\n",
+  "CUSTOMER",
+  `Name: ${order.shipping_name}`,
+  `Phone: ${order.shipping_phone}`,  "\n",
+  "DELIVERY ADDRESS",
+  order.shipping_address,
+  order.shipping_postal_code && order.shipping_city
+    ? `${order.shipping_postal_code} ${order.shipping_city}`
+    : order.shipping_city || "",
+  order.shipping_country || "",
+  "\n",
+  "ITEMS",
+  ...orderItems.map(
+    (item) =>
+      `• ${item.product_name} × ${item.quantity}`,
+  ),
+  "\n",
+  "PAYMENT",
+  `Method: ${order.payment_method}`,
+  `Status: ${order.payment_status}`,
+  `Total: CHF ${Number(order.total).toFixed(2)}`,
+  "\n",
+]
+  .filter((line) => line !== "")
+  .join("\n");
 
   /* =========================================================
      CREATE GOOGLE CALENDAR EVENT
