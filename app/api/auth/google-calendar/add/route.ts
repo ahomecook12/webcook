@@ -5,13 +5,56 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { createGoogleCalendarEvent } from "@/lib/google-calendar";
 
 export async function POST(request: Request) {
- // const url = new URL(request.url);
-
   /* =========================================================
      REQUIRE ADMIN
+
+     Web:
+       Uses the normal server session/cookie.
+
+     Mobile:
+       Uses the Supabase access token from Authorization header.
      ========================================================= */
 
-  const { user, isAdmin } = await requireAdmin();
+  let user: { id: string } | null = null;
+  let isAdmin = false;
+
+  const authorization = request.headers.get("authorization");
+
+  if (authorization?.startsWith("Bearer ")) {
+    const accessToken = authorization.substring("Bearer ".length).trim();
+
+    if (accessToken) {
+      const supabase = createServiceRoleClient();
+
+      const {
+        data: { user: mobileUser },
+        error: userError,
+      } = await supabase.auth.getUser(accessToken);
+
+      if (!userError && mobileUser) {
+        user = mobileUser;
+
+        const { data: profile, error: profileError } =
+          await supabase
+            .from("profiles")
+            .select("role")
+            .eq("id", mobileUser.id)
+            .single();
+
+        if (!profileError && profile?.role === "admin") {
+          isAdmin = true;
+        }
+      }
+    }
+  } else {
+    /*
+     * Normal web-shop authentication.
+     */
+    const adminResult = await requireAdmin();
+
+    user = adminResult.user;
+    isAdmin = adminResult.isAdmin;
+  }
 
   if (!user || !isAdmin) {
     return NextResponse.json(
@@ -103,8 +146,6 @@ export async function POST(request: Request) {
 
   /* =========================================================
      SERVICE ROLE CLIENT
-
-     Used only on the server.
      ========================================================= */
 
   const supabase = createServiceRoleClient();
@@ -219,51 +260,40 @@ export async function POST(request: Request) {
   }
 
   /* =========================================================
-     BUILD EVENT TITLE
+     BUILD EVENT
      ========================================================= */
 
   const title = `Order ${order.order_number}`;
 
-  /* =========================================================
-     BUILD EVENT DESCRIPTION
-     ========================================================= */
-
-  // const itemLines =
-  //   orderItems && orderItems.length > 0
-  //     ? orderItems.map(
-  //         (item) =>
-  //           `• ${item.product_name} × ${item.quantity}`,
-  //       )
-  //     : [];
-
- const description = [
-  "\n",
-  `Order ${order.order_number}`,
-  "\n",
-  "CUSTOMER",
-  `Name: ${order.shipping_name}`,
-  `Phone: ${order.shipping_phone}`,  "\n",
-  "DELIVERY ADDRESS",
-  order.shipping_address,
-  order.shipping_postal_code && order.shipping_city
-    ? `${order.shipping_postal_code} ${order.shipping_city}`
-    : order.shipping_city || "",
-  order.shipping_country || "",
-  "\n",
-  "ITEMS",
-  ...orderItems.map(
-    (item) =>
-      `• ${item.product_name} × ${item.quantity}`,
-  ),
-  "\n",
-  "PAYMENT",
-  `Method: ${order.payment_method}`,
-  `Status: ${order.payment_status}`,
-  `Total: CHF ${Number(order.total).toFixed(2)}`,
-  "\n",
-]
-  .filter((line) => line !== "")
-  .join("\n");
+  const description = [
+    "\n",
+    `Order ${order.order_number}`,
+    "\n",
+    "CUSTOMER",
+    `Name: ${order.shipping_name}`,
+    `Phone: ${order.shipping_phone}`,
+    "\n",
+    "DELIVERY ADDRESS",
+    order.shipping_address,
+    order.shipping_postal_code && order.shipping_city
+      ? `${order.shipping_postal_code} ${order.shipping_city}`
+      : order.shipping_city || "",
+    order.shipping_country || "",
+    "\n",
+    "ITEMS",
+    ...orderItems.map(
+      (item) =>
+        `• ${item.product_name} × ${item.quantity}`,
+    ),
+    "\n",
+    "PAYMENT",
+    `Method: ${order.payment_method}`,
+    `Status: ${order.payment_status}`,
+    `Total: CHF ${Number(order.total).toFixed(2)}`,
+    "\n",
+  ]
+    .filter((line) => line !== "")
+    .join("\n");
 
   /* =========================================================
      CREATE GOOGLE CALENDAR EVENT
@@ -277,8 +307,6 @@ export async function POST(request: Request) {
       start: startDate.toISOString(),
       end: endDate.toISOString(),
     });
-
-    //console.log(      "Google Calendar event created:",      event.id,    );
 
     return NextResponse.json({
       success: true,
