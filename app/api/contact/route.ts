@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
 import emailjs from "@emailjs/nodejs";
+import { SHOP_NAME } from "@/app/constants";
 
 export async function POST(request: Request) {
+ // console.log("🔥 CONTACT API CALLED");
+
   try {
     const body = await request.json();
+
+   // console.log("🔥 CONTACT BODY:", body);
 
     const name = String(body?.name ?? "").trim();
     const email = String(body?.email ?? "").trim();
@@ -46,7 +51,7 @@ export async function POST(request: Request) {
       {
         name,
         email,
-        subject: subject || "Message from Lucky Charm Creation",
+        subject: subject || `Message from ${SHOP_NAME}`,
         message,
         reply_to: email,
       },

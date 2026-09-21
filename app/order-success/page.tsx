@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { CURRENCY_SYMBOL } from "../constants";
 
 type OrderSuccessPageProps = {
   searchParams: Promise<{
@@ -126,7 +127,7 @@ export default async function OrderSuccessPage({
                     <span>Total</span>
 
                     <span>
-                      CHF {Number(orderData.total).toFixed(2)}
+                      {CURRENCY_SYMBOL} {Number(orderData.total).toFixed(2)}
                     </span>
                   </div>
                 </div>

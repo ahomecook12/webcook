@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import CartItemControls from "@/components/storefront/cart-item-controls";
+import { CURRENCY_SYMBOL } from "../constants";
 
 type CartProduct = {
   id: string;
@@ -220,7 +221,7 @@ export default async function CartPage() {
 
                       {!catalogMode && (
                         <p className="mt-1 text-sm text-muted-foreground">
-                          CHF {Number(price).toFixed(2)}
+                          {CURRENCY_SYMBOL} {Number(price).toFixed(2)}
                         </p>
                       )}
 
@@ -235,7 +236,7 @@ export default async function CartPage() {
 
                     {!catalogMode && (
                       <div className="text-right font-medium">
-                        CHF {(Number(price) * item.quantity).toFixed(2)}
+                        {CURRENCY_SYMBOL} {(Number(price) * item.quantity).toFixed(2)}
                       </div>
                     )}
                   </div>
@@ -253,14 +254,14 @@ export default async function CartPage() {
                   <div className="mt-5 flex justify-between text-sm">
                     <span className="text-muted-foreground">Subtotal</span>
 
-                    <span>CHF {subtotal.toFixed(2)}</span>
+                    <span>{CURRENCY_SYMBOL} {subtotal.toFixed(2)}</span>
                   </div>
 
                   <div className="mt-4 border-t pt-4">
                     <div className="flex justify-between font-semibold">
                       <span>Total</span>
 
-                      <span>CHF {subtotal.toFixed(2)}</span>
+                      <span>{CURRENCY_SYMBOL} {subtotal.toFixed(2)}</span>
                     </div>
                   </div>
                 </>

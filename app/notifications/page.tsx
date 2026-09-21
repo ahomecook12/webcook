@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Bell } from "lucide-react";
-
 import AddToCalendarDialog from "@/components/notifications/add-to-calendar-dialog";
 import { createClient } from "@/lib/supabase/server";
 
@@ -128,18 +127,31 @@ export default async function NotificationsPage() {
           ===================================================== */}
 
       <div className="mb-6">
-        <div className="flex items-center gap-2">
-          <Bell className="h-5 w-5" />
+  <div className="flex items-center justify-between gap-4">
+    <div>
+      <div className="flex items-center gap-2">
+        <Bell className="h-5 w-5" />
 
-          <h1 className="text-2xl font-semibold">
-            Notifications
-          </h1>
-        </div>
-
-        <p className="mt-1 text-sm text-muted-foreground">
-          View all your notifications.
-        </p>
+        <h1 className="text-2xl font-semibold">
+          Notifications
+        </h1>
       </div>
+
+      <p className="mt-1 text-sm text-muted-foreground">
+        View all your notifications.
+      </p>
+    </div>
+
+    {isAdmin && (
+      <Link
+        href="/api/auth/google-calendar/connect"
+        className="shrink-0 rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted"
+      >
+        Connect Google Calendar
+      </Link>
+    )}
+  </div>
+</div>
 
       {/* =====================================================
           EMPTY STATE

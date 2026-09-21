@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { CURRENCY_SYMBOL } from "@/app/constants";
 
 export default async function AdminProductsPage() {
   const { isAdmin } = await requireAdmin();
@@ -58,7 +59,7 @@ export default async function AdminProductsPage() {
               <span className="font-medium">{product.name}</span>
 
               <span className="hidden sm:block">
-                CHF {Number(product.price).toFixed(2)}
+                {CURRENCY_SYMBOL} {Number(product.price).toFixed(2)}
               </span>
 
               <span className="hidden sm:block">

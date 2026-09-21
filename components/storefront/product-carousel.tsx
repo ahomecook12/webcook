@@ -1,5 +1,6 @@
 "use client";
 
+import { CURRENCY_SYMBOL } from "@/app/constants";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState, type MouseEvent } from "react";
@@ -87,14 +88,14 @@ function ProductCard({
             <div className="mt-1 text-sm">
               {product.sale_price != null ? (
                 <>
-                  <span>CHF {Number(product.sale_price).toFixed(2)}</span>
+                  <span>{CURRENCY_SYMBOL} {Number(product.sale_price).toFixed(2)}</span>
 
                   <span className="ml-2 text-muted-foreground line-through">
-                    CHF {Number(product.price).toFixed(2)}
+                    {CURRENCY_SYMBOL} {Number(product.price).toFixed(2)}
                   </span>
                 </>
               ) : (
-                `CHF ${Number(product.price).toFixed(2)}`
+                `${CURRENCY_SYMBOL} ${Number(product.price).toFixed(2)}`
               )}
             </div>
           )}

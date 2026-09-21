@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Loader2 } from "lucide-react";
+import { CURRENCY_SYMBOL } from "../constants";
 
 type Product = {
   id: string;
@@ -370,16 +371,16 @@ export default function ProductBrowser({
                     (isOnSale ? (
                       <div className="mt-1.5 flex items-baseline gap-2">
                         <span className="text-md font-bold">
-                          CHF {product.sale_price!.toFixed(2)}
+                          {CURRENCY_SYMBOL} {product.sale_price!.toFixed(2)}
                         </span>
 
                         <span className="text-md text-muted-foreground line-through">
-                          CHF {product.price.toFixed(2)}
+                          {CURRENCY_SYMBOL} {product.price.toFixed(2)}
                         </span>
                       </div>
                     ) : (
                       <p className="mt-1.5 text-md font-bold">
-                        CHF {product.price.toFixed(2)}
+                        {CURRENCY_SYMBOL} {product.price.toFixed(2)}
                       </p>
                     ))}
                 </div>

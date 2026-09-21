@@ -66,7 +66,7 @@ function ResetPasswordForm() {
     setMessage("Your password has been updated successfully.");
 
     setTimeout(() => {
-      router.push("/auth/login");
+      router.push("/");
       router.refresh();
     }, 1500);
   }

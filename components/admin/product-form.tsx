@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import { CURRENCY_SYMBOL } from "@/app/constants";
 
 export type ProductDisplaySettings = {
   price: boolean;
@@ -643,14 +644,15 @@ export function ProductForm({
             <div className="grid gap-4 sm:grid-cols-3">
               <NumberField
                 id="price"
-                label="Price (CHF)"
+                label={`Price (${CURRENCY_SYMBOL})`}
                 value={price}
                 onChange={setPrice}
                 required
               />
+
               <NumberField
                 id="salePrice"
-                label="Sale Price (CHF)"
+                label={`Sale Price (${CURRENCY_SYMBOL})`}
                 value={salePrice}
                 onChange={setSalePrice}
                 placeholder="Optional"

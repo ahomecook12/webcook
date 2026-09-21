@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
+import { CURRENCY_SYMBOL } from "../constants";
 
 export const dynamic = "force-dynamic";
 
@@ -107,7 +108,7 @@ export default async function OrdersPage() {
                     <span className="ml-2 font-semibold">
                       {catalogMode
                         ? "Confirmed directly"
-                        : `CHF ${Number(order.total).toFixed(2)}`}
+                        : `${CURRENCY_SYMBOL} ${Number(order.total).toFixed(2)}`}
                     </span>
                   </div>
 

@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { createClient } from "@/lib/supabase/client";
 import type { HeroMedia } from "@/components/storefront/hero-carousel";
+import { CURRENCY_SYMBOL } from "@/app/constants";
 
 export type SiteSettings = {
   theme: "golden" | "light" | "dark";
@@ -1395,7 +1396,7 @@ export function SiteSettingsForm({
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="shipping-price">Shipping price (CHF)</Label>
+                  <Label htmlFor="shipping-price">Shipping price ({CURRENCY_SYMBOL})</Label>
 
                   <Input
                     id="shipping-price"

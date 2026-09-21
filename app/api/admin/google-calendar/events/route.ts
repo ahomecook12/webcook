@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-
+import { SHOP_NAME } from "@/app/constants";
 import { requireAdmin } from "@/lib/supabase/admin";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { createGoogleCalendarEvent } from "@/lib/google-calendar";
@@ -57,10 +57,7 @@ export async function POST(request: Request) {
   const startDate = new Date(start);
   const endDate = new Date(end);
 
-  if (
-    Number.isNaN(startDate.getTime()) ||
-    Number.isNaN(endDate.getTime())
-  ) {
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
     return NextResponse.json(
       {
         error: "Invalid start or end date.",
@@ -89,23 +86,18 @@ export async function POST(request: Request) {
        GET SAVED GOOGLE CALENDAR TOKEN
        ========================================================= */
 
-    const { data: calendarToken, error: tokenError } =
-      await supabase
-        .from("google_calendar_tokens")
-        .select("refresh_token")
-        .eq("user_id", user.id)
-        .single();
+    const { data: calendarToken, error: tokenError } = await supabase
+      .from("google_calendar_tokens")
+      .select("refresh_token")
+      .eq("user_id", user.id)
+      .single();
 
     if (tokenError || !calendarToken?.refresh_token) {
-      console.error(
-        "Google Calendar token not found:",
-        tokenError,
-      );
+      console.error("Google Calendar token not found:", tokenError);
 
       return NextResponse.json(
         {
-          error:
-            "Google Calendar is not connected for this admin.",
+          error: "Google Calendar is not connected for this admin.",
         },
         {
           status: 400,
@@ -117,26 +109,22 @@ export async function POST(request: Request) {
        GET ORDER
        ========================================================= */
 
-    const { data: order, error: orderError } =
-      await supabase
-        .from("orders")
-        .select(
-          `
+    const { data: order, error: orderError } = await supabase
+      .from("orders")
+      .select(
+        `
             id,
             order_number,
             total_amount,
             customer_name,
             customer_email
           `,
-        )
-        .eq("id", orderId)
-        .single();
+      )
+      .eq("id", orderId)
+      .single();
 
     if (orderError || !order) {
-      console.error(
-        "Failed to load order:",
-        orderError,
-      );
+      console.error("Failed to load order:", orderError);
 
       return NextResponse.json(
         {
@@ -152,10 +140,10 @@ export async function POST(request: Request) {
        BUILD CALENDAR EVENT
        ========================================================= */
 
-    const title = `LCC Order ${order.order_number}`;
+    const title = `${SHOP_NAME} Order ${order.order_number}`;
 
     const description = [
-      "New order from Lucky Charm Creation",
+      `New order from ${SHOP_NAME}`,
       "",
       `Order: ${order.order_number}`,
       `Customer: ${order.customer_name ?? "N/A"}`,
@@ -183,15 +171,11 @@ export async function POST(request: Request) {
       eventUrl: event.htmlLink ?? null,
     });
   } catch (error) {
-    console.error(
-      "Failed to create Google Calendar event:",
-      error,
-    );
+    console.error("Failed to create Google Calendar event:", error);
 
     return NextResponse.json(
       {
-        error:
-          "Failed to create Google Calendar event.",
+        error: "Failed to create Google Calendar event.",
       },
       {
         status: 500,

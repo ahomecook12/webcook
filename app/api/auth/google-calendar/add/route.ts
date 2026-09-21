@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/supabase/admin";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { createGoogleCalendarEvent } from "@/lib/google-calendar";
+import { CURRENCY_SYMBOL } from "@/app/constants";
 
 export async function POST(request: Request) {
   /* =========================================================
@@ -289,7 +290,7 @@ export async function POST(request: Request) {
     "PAYMENT",
     `Method: ${order.payment_method}`,
     `Status: ${order.payment_status}`,
-    `Total: CHF ${Number(order.total).toFixed(2)}`,
+    `Total: ${CURRENCY_SYMBOL} ${Number(order.total).toFixed(2)}`,
     "\n",
   ]
     .filter((line) => line !== "")

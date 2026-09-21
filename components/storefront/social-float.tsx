@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import emailjs from "@emailjs/browser";
 import Image from "next/image";
 
 type SocialLink = {
@@ -40,53 +39,57 @@ export function SocialFloat({ settings }: SocialFloatProps) {
   );
 
   async function sendMessage(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  event.preventDefault();
 
-    const serviceId = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID;
-    const templateId = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID;
-    const publicKey = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY;
-
-  
-
-    if (!serviceId || !templateId || !publicKey) {
-      console.error("EmailJS environment variables are missing.");
-
-      alert(
-        "Email service is not configured correctly. Please try again later.",
-      );
-
-      return;
-    }
-
-    setSending(true);
-
-    try {
-     // const form = event.currentTarget;
-
-     
-
-      // const response = await emailjs.sendForm(serviceId, templateId, form, {
-      //   publicKey,
-      // });
-
-      
-
-      alert("Your message has been sent successfully. Thank you! ❤️");
-
-      setName("");
-      setEmail("");
-      setMessage("");
-
-      setContactOpen(false);
-      setOpen(false);
-    } catch (error) {
-      console.error("EmailJS error:", error);
-
-      alert("Sorry, your message could not be sent. Please try again.");
-    } finally {
-      setSending(false);
-    }
+  if (!name.trim() || !email.trim() || !message.trim()) {
+    alert("Please fill in your name, email and message.");
+    return;
   }
+
+  setSending(true);
+
+  try {
+    const response = await fetch("/api/contact", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: name.trim(),
+        email: email.trim(),
+        subject: "Contact message",
+        message: message.trim(),
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+      throw new Error(
+        data?.error || "Could not send your message.",
+      );
+    }
+
+    alert("Your message has been sent successfully. Thank you! ❤️");
+
+    setName("");
+    setEmail("");
+    setMessage("");
+
+    setContactOpen(false);
+    setOpen(false);
+  } catch (error) {
+    console.error("Contact form error:", error);
+
+    alert(
+      error instanceof Error
+        ? error.message
+        : "Sorry, your message could not be sent. Please try again.",
+    );
+  } finally {
+    setSending(false);
+  }
+}
 
   return (
     <>

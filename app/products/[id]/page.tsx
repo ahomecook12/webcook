@@ -6,7 +6,7 @@ import AddToCartButton from "@/components/storefront/add-to-cart-button";
 import ProductGallery from "@/components/storefront/product-gallery";
 import type { Metadata } from "next";
 import Image from "next/image";
-import { SHOP_NAME } from "@/app/constants";
+import { CURRENCY_SYMBOL, SHOP_NAME } from "@/app/constants";
 
 type DisplaySettings = {
   price?: boolean;
@@ -274,14 +274,14 @@ export default async function ProductPage({
                 <p className="mt-3 text-xl font-medium">
                   {salePrice !== null ? (
                     <>
-                      <span>CHF {salePrice.toFixed(2)}</span>
+                      <span>{CURRENCY_SYMBOL} {salePrice.toFixed(2)}</span>
 
                       <span className="ml-3 text-base text-muted-foreground line-through">
-                        CHF {Number(product.price).toFixed(2)}
+                        {CURRENCY_SYMBOL} {Number(product.price).toFixed(2)}
                       </span>
                     </>
                   ) : (
-                    `CHF ${Number(product.price).toFixed(2)}`
+                    `${CURRENCY_SYMBOL} ${Number(product.price).toFixed(2)}`
                   )}
                 </p>
               )

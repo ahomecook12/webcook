@@ -1,14 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import emailjs from "@emailjs/browser";
+
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -36,28 +31,27 @@ export function ContactDialog() {
     setSending(true);
 
     try {
-      const serviceId = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID;
-      const templateId = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID;
-      const publicKey = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY;
-
-      if (!serviceId || !templateId || !publicKey) {
-        throw new Error("Email service is not configured.");
-      }
-
-      await emailjs.send(
-        serviceId,
-        templateId,
-        {
+      console.log("🔥 CONTACT FORM SUBMITTING");
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
           name: name.trim(),
           email: email.trim(),
           subject: subject.trim() || `Message from ${SHOP_NAME}`,
           message: message.trim(),
-          reply_to: email.trim(),
-        },
-        {
-          publicKey,
-        },
-      );
+        }),
+      });
+      console.log("🔥 CONTACT API RESPONSE:", response.status);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || "Could not send your message.");
+      }
+
+      console.log("Contact email sent successfully:", data);
 
       setSent(true);
 
@@ -136,20 +130,14 @@ export function ContactDialog() {
                     ✓
                   </div>
 
-                  <h3 className="mt-4 text-xl font-semibold">
-                    Message sent!
-                  </h3>
+                  <h3 className="mt-4 text-xl font-semibold">Message sent!</h3>
 
                   <p className="mt-2 text-sm text-muted-foreground">
                     Thank you for contacting us. We&apos;ll get back to you as
                     soon as possible.
                   </p>
 
-                  <Button
-                    type="button"
-                    className="mt-6"
-                    onClick={closeDialog}
-                  >
+                  <Button type="button" className="mt-6" onClick={closeDialog}>
                     Close
                   </Button>
                 </div>
@@ -181,9 +169,7 @@ export function ContactDialog() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="contact-subject">
-                      Subject
-                    </Label>
+                    <Label htmlFor="contact-subject">Subject</Label>
 
                     <Input
                       id="contact-subject"
@@ -195,9 +181,7 @@ export function ContactDialog() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="contact-message">
-                      Message
-                    </Label>
+                    <Label htmlFor="contact-message">Message</Label>
 
                     <Textarea
                       id="contact-message"

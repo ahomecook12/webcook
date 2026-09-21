@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { requireAdmin } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { CURRENCY_SYMBOL } from "@/app/constants";
 
 export default async function AdminOrdersPage() {
   const { isAdmin } = await requireAdmin();
@@ -107,7 +108,7 @@ export default async function AdminOrdersPage() {
 
                 <div className="text-left lg:text-right">
                   <p className="font-semibold">
-                    CHF {Number(order.total).toFixed(2)}
+                    {CURRENCY_SYMBOL} {Number(order.total).toFixed(2)}
                   </p>
 
                   <p className="mt-1 text-xs text-muted-foreground">

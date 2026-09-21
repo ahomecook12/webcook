@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import OrderStatusHelp from "@/components/storefront/order-status-help";
 import OrderStatusTimeline from "@/components/storefront/order-status-timeline";
+import { CURRENCY_SYMBOL } from "@/app/constants";
 
 type OrderPageProps = {
   params: Promise<{ id: string }>;
@@ -149,13 +150,13 @@ export default async function OrderPage({
                     {!catalogMode && (
                       <div className="text-right">
                         <p className="text-sm text-muted-foreground">
-                          CHF{" "}
+                          {CURRENCY_SYMBOL}{" "}
                           {Number(item.unit_price).toFixed(2)} ×{" "}
                           {item.quantity}
                         </p>
 
                         <p className="font-medium">
-                          CHF{" "}
+                          {CURRENCY_SYMBOL}{" "}
                           {Number(item.total_price).toFixed(2)}
                         </p>
                       </div>
@@ -264,7 +265,7 @@ export default async function OrderPage({
                   </span>
 
                   <span>
-                    CHF{" "}
+                    {CURRENCY_SYMBOL}{" "}
                     {Number(order.subtotal).toFixed(2)}
                   </span>
                 </div>
@@ -277,7 +278,7 @@ export default async function OrderPage({
                   <span>
                     {Number(order.shipping_cost) === 0
                       ? "Free"
-                      : `CHF ${Number(
+                      : `${CURRENCY_SYMBOL} ${Number(
                           order.shipping_cost,
                         ).toFixed(2)}`}
                   </span>
@@ -288,7 +289,7 @@ export default async function OrderPage({
                     <span>Total</span>
 
                     <span>
-                      CHF{" "}
+                      {CURRENCY_SYMBOL}{" "}
                       {Number(order.total).toFixed(2)}
                     </span>
                   </div>

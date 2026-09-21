@@ -4,6 +4,7 @@ import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
 import CheckoutPayment from "@/components/storefront/checkout-payment";
 import CheckoutForm from "@/components/storefront/checkout-form";
+import { CURRENCY_SYMBOL } from "../constants";
 
 type CartProduct = {
   id: string;
@@ -304,7 +305,7 @@ export default async function CheckoutPage() {
                             </p>
                           ) : (
                             <p className="mt-1 text-sm text-muted-foreground">
-                              CHF{" "}
+                              {CURRENCY_SYMBOL}{" "}
                               {Number(price).toFixed(2)} ×{" "}
                               {item.quantity}
                             </p>
@@ -313,7 +314,7 @@ export default async function CheckoutPage() {
 
                         {!catalogMode && (
                           <p className="font-medium">
-                            CHF{" "}
+                            {CURRENCY_SYMBOL}{" "}
                             {(
                               Number(price) *
                               item.quantity
@@ -343,7 +344,7 @@ export default async function CheckoutPage() {
                       <p className="mt-1 text-sm text-muted-foreground">
                         {storefrontSettings.free_shipping
                           ? "Free shipping"
-                          : `CHF ${shippingPrice.toFixed(2)}`}
+                          : `${CURRENCY_SYMBOL} ${shippingPrice.toFixed(2)}`}
                       </p>
                     )}
 
@@ -405,7 +406,7 @@ export default async function CheckoutPage() {
                     </span>
 
                     <span>
-                      CHF {subtotal.toFixed(2)}
+                      {CURRENCY_SYMBOL} {subtotal.toFixed(2)}
                     </span>
                   </div>
 
@@ -417,7 +418,7 @@ export default async function CheckoutPage() {
                     <span>
                       {shippingPrice === 0
                         ? "Free"
-                        : `CHF ${shippingPrice.toFixed(2)}`}
+                        : `${CURRENCY_SYMBOL} ${shippingPrice.toFixed(2)}`}
                     </span>
                   </div>
 
@@ -426,7 +427,7 @@ export default async function CheckoutPage() {
                       <span>Total</span>
 
                       <span>
-                        CHF {total.toFixed(2)}
+                        {CURRENCY_SYMBOL} {total.toFixed(2)}
                       </span>
                     </div>
                   </div>
