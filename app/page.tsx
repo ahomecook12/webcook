@@ -334,7 +334,7 @@ export default async function Home() {
                 </p>
 
                 <p className="mt-3 text-2xl font-semibold">
-                  Home-Made, Hygenic, Pure & Delicious
+                  Home-Made, Hygenic, Pure & Delicious 
                 </p>
               </CardContent>
             </Card>
@@ -342,7 +342,7 @@ export default async function Home() {
 
           <div className="max-w-2xl self-center">
             <p className="mb-4 text-sm font-medium tracking-[0.16em] text-primary">
-              MADE WITH LOVE • TRADITION • PURE INGREDIENTS
+              ❤️ MADE WITH LOVE ❤️ TRADITION ❤️ PURE INGREDIENTS ❤️
             </p>
 
             <h1 className="text-4xl italic font-semibold tracking-tight sm:text-5xl">
