@@ -10,6 +10,17 @@ type RequestBody = {
   end?: string;
 };
 
+type PaymentMethodSnapshot = {
+  id?: string | null;
+  method_type?: string | null;
+  display_name?: string | null;
+  account_name?: string | null;
+  phone_number?: string | null;
+  payment_url?: string | null;
+  instructions?: string | null;
+  qr_code_url?: string | null;
+};
+
 export async function POST(request: Request) {
   const { user, isAdmin } = await requireAdmin();
 
@@ -113,12 +124,15 @@ export async function POST(request: Request) {
       .from("orders")
       .select(
         `
-            id,
-            order_number,
-            total_amount,
-            customer_name,
-            customer_email
-          `,
+          id,
+          order_number,
+          total_amount,
+          customer_name,
+          customer_email,
+          payment_method,
+          payment_method_id,
+          payment_method_snapshot
+        `,
       )
       .eq("id", orderId)
       .single();
@@ -137,6 +151,22 @@ export async function POST(request: Request) {
     }
 
     /* =========================================================
+       PAYMENT METHOD
+       
+       Prefer the saved snapshot because it represents the
+       payment method that was actually selected for this order.
+       Fall back to the payment_method value for older orders.
+       ========================================================= */
+
+    const paymentSnapshot =
+      order.payment_method_snapshot as PaymentMethodSnapshot | null;
+
+    const paymentMethod =
+      paymentSnapshot?.display_name?.trim() ||
+      order.payment_method?.trim() ||
+      "Not specified";
+
+    /* =========================================================
        BUILD CALENDAR EVENT
        ========================================================= */
 
@@ -148,6 +178,7 @@ export async function POST(request: Request) {
       `Order: ${order.order_number}`,
       `Customer: ${order.customer_name ?? "N/A"}`,
       `Email: ${order.customer_email ?? "N/A"}`,
+      `Payment method: ${paymentMethod}`,
       `Total: ${order.total_amount ?? "N/A"}`,
       "",
       `Order ID: ${order.id}`,
