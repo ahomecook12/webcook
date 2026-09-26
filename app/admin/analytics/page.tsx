@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/supabase/admin";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import CleanupAnalyticsButton from "@/components/analytics/CleanupAnalyticsButton";
 import Link from "next/link";
+import { STORE_LOCALE } from "@/app/constants";
 
 
 type VisitorSession = {
@@ -40,7 +41,7 @@ type MonthlyStats = {
 };
 
 function formatDate(date: string) {
-  return new Date(date).toLocaleString("en-CH", {
+  return new Date(date).toLocaleString(STORE_LOCALE, {
     dateStyle: "short",
     timeStyle: "short",
   });
@@ -48,7 +49,7 @@ function formatDate(date: string) {
 
 function formatMonth(month: string) {
   return new Date(`${month}T00:00:00`).toLocaleDateString(
-    "en-CH",
+    STORE_LOCALE,
     {
       month: "long",
       year: "numeric",

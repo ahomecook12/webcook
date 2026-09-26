@@ -30,12 +30,9 @@ export default async function CartPage() {
   }
 
   const [
-    { data: profile },
     { data: cart, error: cartError },
     { data: siteSettings },
   ] = await Promise.all([
-    supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
-
     supabase.from("carts").select("id").eq("user_id", user.id).maybeSingle(),
 
     supabase
@@ -49,7 +46,6 @@ export default async function CartPage() {
     throw new Error(cartError.message);
   }
 
-  const isAdmin = profile?.role === "admin";
   const catalogMode = siteSettings?.catalog_mode === true;
 
   /*

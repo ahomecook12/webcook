@@ -1,20 +1,20 @@
 @import "tailwindcss";
 
 :root {
-  --background: #faf8f4;
-  --foreground: #292722;
-  --card: #ffffff;
-  --card-foreground: #292722;
-  --primary: #b89b5e;
-  --primary-foreground: #ffffff;
-  --secondary: #eee8dd;
-  --secondary-foreground: #292722;
-  --muted: #f1eee8;
-  --muted-foreground: #756f65;
-  --border: #e8e2d8;
-  --input: #d8d1c5;
-  --ring: #b89b5e;
-  --destructive: #b42318;
+  --background: #fff4dc;
+  --foreground: #5a2118;
+  --card: #fffaf0;
+  --card-foreground: #5a2118;
+  --primary: #4f6427;
+  --primary-foreground: #fff4dc;
+  --secondary: #ead9b5;
+  --secondary-foreground: #5a2118;
+  --muted: #f6e9cf;
+  --muted-foreground: #756044;
+  --border: #d8b978;
+  --input: #d8b978;
+  --ring: #b88a3b;
+  --destructive: #9f2f20;
 }
 
 @theme inline {
@@ -45,7 +45,20 @@
 }
 
 .site-theme-golden {
-  --background: #faf8f4; --foreground: #292722; --card: #ffffff; --card-foreground: #292722; --primary: #b89b5e; --primary-foreground: #ffffff; --secondary: #eee8dd; --secondary-foreground: #292722; --muted: #f1eee8; --muted-foreground: #756f65; --border: #e8e2d8; --input: #d8d1c5; --ring: #b89b5e; --destructive: #b42318;
+  --background: #fff4dc;
+  --foreground: #5a2118;
+  --card: #fffaf0;
+  --card-foreground: #5a2118;
+  --primary: #4f6427;
+  --primary-foreground: #fff4dc;
+  --secondary: #ead9b5;
+  --secondary-foreground: #5a2118;
+  --muted: #f6e9cf;
+  --muted-foreground: #756044;
+  --border: #d8b978;
+  --input: #d8b978;
+  --ring: #b88a3b;
+  --destructive: #9f2f20;
 }
 
 body {

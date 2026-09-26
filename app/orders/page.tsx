@@ -2,9 +2,19 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
-import { CURRENCY_SYMBOL } from "../constants";
+import { CURRENCY_SYMBOL, STORE_LOCALE } from "../constants";
 
 export const dynamic = "force-dynamic";
+
+type PaymentMethodSnapshot = {
+  display_name?: string;
+  method_type?: string;
+  account_name?: string | null;
+  phone_number?: string | null;
+  payment_url?: string | null;
+  instructions?: string | null;
+  qr_code_url?: string | null;
+};
 
 export default async function OrdersPage() {
   const supabase = await createClient();
@@ -22,7 +32,18 @@ export default async function OrdersPage() {
       supabase
         .from("orders")
         .select(
-          "id, order_number, status, payment_method, payment_status, subtotal, shipping_cost, total, created_at",
+          `
+            id,
+            order_number,
+            status,
+            payment_method_id,
+            payment_method_snapshot,
+            payment_status,
+            subtotal,
+            shipping_cost,
+            total,
+            created_at
+          `,
         )
         .eq("user_id", user.id)
         .order("created_at", { ascending: false }),
@@ -55,72 +76,83 @@ export default async function OrdersPage() {
 
         {orders && orders.length > 0 ? (
           <div className="space-y-4">
-            {orders.map((order) => (
-              <div
-                key={order.id}
-                className="rounded-xl border p-5"
-              >
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="font-semibold">
-                      {order.order_number}
-                    </p>
+            {orders.map((order) => {
+              const paymentSnapshot =
+                order.payment_method_snapshot &&
+                typeof order.payment_method_snapshot === "object"
+                  ? (order.payment_method_snapshot as PaymentMethodSnapshot)
+                  : null;
 
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {new Date(order.created_at).toLocaleDateString(
-                        "en-CH",
-                        {
+              const paymentName =
+                paymentSnapshot?.display_name ??
+                "Payment method";
+
+              return (
+                <div
+                  key={order.id}
+                  className="rounded-xl border p-5"
+                >
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="font-semibold">
+                        {order.order_number}
+                      </p>
+
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {new Date(
+                          order.created_at,
+                        ).toLocaleDateString(STORE_LOCALE, {
                           year: "numeric",
                           month: "long",
                           day: "numeric",
-                        },
+                        })}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      <span className="rounded-full bg-muted px-3 py-1">
+                        {order.status}
+                      </span>
+
+                      {!catalogMode && (
+                        <>
+                          <span className="rounded-full bg-muted px-3 py-1">
+                            {paymentName}
+                          </span>
+
+                          <span className="rounded-full bg-muted px-3 py-1">
+                            {order.payment_status}
+                          </span>
+                        </>
                       )}
-                    </p>
+                    </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-2 text-xs">
-                    <span className="rounded-full bg-muted px-3 py-1">
-                      {order.status}
-                    </span>
+                  <div className="mt-5 flex flex-col gap-4 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="text-sm">
+                      <span className="text-muted-foreground">
+                        {catalogMode ? "Price" : "Total"}
+                      </span>
 
-                    {!catalogMode && (
-                      <>
-                        <span className="rounded-full bg-muted px-3 py-1">
-                          {order.payment_method === "twint"
-                            ? "TWINT"
-                            : "Bank Transfer"}
-                        </span>
+                      <span className="ml-2 font-semibold">
+                        {catalogMode
+                          ? "Confirmed directly"
+                          : `${CURRENCY_SYMBOL} ${Number(
+                              order.total,
+                            ).toFixed(2)}`}
+                      </span>
+                    </div>
 
-                        <span className="rounded-full bg-muted px-3 py-1">
-                          {order.payment_status}
-                        </span>
-                      </>
-                    )}
+                    <Link
+                      href={`/orders/${order.id}`}
+                      className="rounded-lg border px-4 py-2 text-center text-sm font-medium hover:bg-muted"
+                    >
+                      View order
+                    </Link>
                   </div>
                 </div>
-
-                <div className="mt-5 flex flex-col gap-4 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="text-sm">
-                    <span className="text-muted-foreground">
-                      {catalogMode ? "Price" : "Total"}
-                    </span>
-
-                    <span className="ml-2 font-semibold">
-                      {catalogMode
-                        ? "Confirmed directly"
-                        : `${CURRENCY_SYMBOL} ${Number(order.total).toFixed(2)}`}
-                    </span>
-                  </div>
-
-                  <Link
-                    href={`/orders/${order.id}`}
-                    className="rounded-lg border px-4 py-2 text-center text-sm font-medium hover:bg-muted"
-                  >
-                    View order
-                  </Link>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="rounded-xl border p-10 text-center">

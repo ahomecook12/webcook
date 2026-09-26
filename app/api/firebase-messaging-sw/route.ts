@@ -37,7 +37,7 @@ messaging.onBackgroundMessage((payload) => {
       payload.data?.body ??
       "You have a new notification.",
 
-    icon: "/lcc.svg",
+    icon: "/ak.svg",
 
     data: {
       ...(payload.data ?? {}),

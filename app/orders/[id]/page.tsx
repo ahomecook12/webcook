@@ -1,18 +1,35 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-
-import OrderStatusHelp from "@/components/storefront/order-status-help";
+import OrderHistoryDialog from "@/components/storefront/order-history-dialog";
+import { CURRENCY_SYMBOL, STORE_LOCALE } from "@/app/constants";
+import EditOrderForm from "@/components/storefront/edit-order-form";
 import OrderStatusTimeline from "@/components/storefront/order-status-timeline";
-import { CURRENCY_SYMBOL } from "@/app/constants";
+import { createClient } from "@/lib/supabase/server";
 
 type OrderPageProps = {
   params: Promise<{ id: string }>;
 };
 
-export default async function OrderPage({
-  params,
-}: OrderPageProps) {
+type PaymentMethodSnapshot = {
+  id?: string;
+  method_type?: string;
+  display_name?: string;
+  account_name?: string | null;
+  phone_number?: string | null;
+  payment_url?: string | null;
+  instructions?: string | null;
+  qr_code_url?: string | null;
+};
+
+type OrderHistoryItem = {
+  id: string;
+  description?: string | null;
+  created_at?: string | null;
+  change_type?: string | null;
+  changed_by_type?: string | null;
+};
+
+export default async function OrderPage({ params }: OrderPageProps) {
   const { id } = await params;
 
   const supabase = await createClient();
@@ -25,53 +42,102 @@ export default async function OrderPage({
     redirect(`/auth/login?redirectTo=/orders/${id}`);
   }
 
-  const [{ data: order, error }, { data: siteSettings }] =
-    await Promise.all([
-      supabase
-        .from("orders")
-        .select(
-          `
+  const [
+    { data: order, error: orderError },
+    { data: siteSettings },
+    { data: paymentMethods },
+    { data: orderHistory, error: orderHistoryError },
+  ] = await Promise.all([
+    supabase
+      .from("orders")
+      .select(
+        `
+          id,
+          order_number,
+          status,
+          payment_method,
+          payment_method_id,
+          payment_method_snapshot,
+          payment_status,
+          subtotal,
+          shipping_cost,
+          total,
+          shipping_name,
+          shipping_phone,
+          shipping_address,
+          shipping_city,
+          shipping_postal_code,
+          shipping_country,
+          customer_note,
+          created_at,
+          updated_at,
+          payment_verified_at,
+          shipped_at,
+          delivered_at,
+          preferred_fulfillment_at,
+          customer_change_unread,
+          customer_change_at,
+          customer_change_summary,
+          porter_status,
+          porter_details,
+
+          order_items (
             id,
-            order_number,
-            status,
-            payment_method,
-            payment_status,
-            subtotal,
-            shipping_cost,
-            total,
-            shipping_name,
-            shipping_phone,
-            shipping_address,
-            shipping_city,
-            shipping_postal_code,
-            shipping_country,
-            customer_note,
-            created_at,
-            payment_verified_at,
-            shipped_at,
-            delivered_at,
-            order_items (
-              id,
-              product_name,
-              quantity,
-              unit_price,
-              total_price
-            )
-          `,
-        )
-        .eq("id", id)
-        .eq("user_id", user.id)
-        .maybeSingle(),
+            product_name,
+            quantity,
+            unit_price,
+            total_price
+          )
+        `,
+      )
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .maybeSingle(),
 
-      supabase
-        .from("site_settings")
-        .select("catalog_mode")
-        .eq("id", true)
-        .maybeSingle(),
-    ]);
+    supabase
+      .from("site_settings")
+      .select("catalog_mode")
+      .eq("id", true)
+      .maybeSingle(),
 
-  if (error) {
-    throw new Error(error.message);
+    supabase
+      .from("payment_methods")
+      .select(
+        `
+          id,
+          method_type,
+          display_name,
+          account_name,
+          phone_number,
+          payment_url,
+          instructions,
+          qr_code_url
+        `,
+      )
+      .eq("enabled", true)
+      .order("display_name", {
+        ascending: true,
+      }),
+
+    supabase
+      .from("order_change_history")
+      .select(
+        `
+          id,
+          description,
+          created_at,
+          change_type,
+          changed_by_type
+        `,
+      )
+      .eq("order_id", id)
+      .order("created_at", {
+        ascending: false,
+      }),
+  ]);
+
+  if (orderError) {
+    throw new Error(orderError.message);
   }
 
   if (!order) {
@@ -80,14 +146,43 @@ export default async function OrderPage({
 
   const catalogMode = siteSettings?.catalog_mode ?? false;
 
-  const paymentLabel =
-    order.payment_method === "twint"
-      ? "TWINT"
-      : "Bank Transfer";
+  const paymentSnapshot =
+    order.payment_method_snapshot as PaymentMethodSnapshot | null;
+
+  const selectedPaymentMethod = paymentMethods?.find(
+    (method) => method.id === order.payment_method_id,
+  );
+
+  const paymentName =
+    paymentSnapshot?.display_name ??
+    selectedPaymentMethod?.display_name ??
+    order.payment_method ??
+    "Payment method";
+
+  const currentPaymentMethodId = order.payment_method_id ?? null;
+
+const historyItems = (orderHistory ?? []) as OrderHistoryItem[];
+
+
+
+  const paymentMethodOptions = (paymentMethods ?? []).map((method) => ({
+    id: method.id,
+    display_name: method.display_name,
+    method_type: method.method_type,
+    account_name: method.account_name,
+    phone_number: method.phone_number,
+    payment_url: method.payment_url,
+    instructions: method.instructions,
+    qr_code_url: method.qr_code_url,
+  }));
 
   return (
     <main className="min-h-screen bg-background">
-      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
+      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+        {/* =====================================================
+            PAGE HEADER
+        ===================================================== */}
+
         <div className="mb-8">
           <Link
             href="/orders"
@@ -96,219 +191,142 @@ export default async function OrderPage({
             ← Back to my orders
           </Link>
 
-          <div className="mt-5">
-            <h1 className="text-3xl font-semibold tracking-tight">
-              Order {order.order_number}
-            </h1>
+          <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h1 className="text-3xl font-semibold tracking-tight">
+                Order {order.order_number}
+              </h1>
 
-            <p className="mt-2 text-sm text-muted-foreground">
-              {new Date(order.created_at).toLocaleDateString(
-                "en-CH",
-                {
+              <p className="mt-2 text-sm text-muted-foreground">
+                {new Date(order.created_at).toLocaleDateString(STORE_LOCALE, {
                   year: "numeric",
                   month: "long",
                   day: "numeric",
-                },
-              )}
-            </p>
+                })}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {order.status}
+              </span>
+
+              <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {order.payment_status}
+              </span>
+            </div>
           </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-          <div className="space-y-6">
-            <OrderStatusTimeline
-              status={order.status}
-              createdAt={order.created_at}
-              paymentStatus={order.payment_status}
-              paymentVerifiedAt={order.payment_verified_at}
-              shippedAt={order.shipped_at}
-              deliveredAt={order.delivered_at}
-            />
+        {/* =====================================================
+            STATUS + ORDER SUMMARY
+        ===================================================== */}
 
-            {/* Order items */}
-            <section className="rounded-xl border p-5">
-              <h2 className="text-lg font-semibold">
-                Order items
-              </h2>
+        <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
+          <OrderStatusTimeline
+            status={order.status}
+            createdAt={order.created_at}
+            paymentStatus={order.payment_status}
+            paymentVerifiedAt={order.payment_verified_at}
+            shippedAt={order.shipped_at}
+            deliveredAt={order.delivered_at}
+          />
 
-              <div className="mt-5 space-y-4">
-                {order.order_items?.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between gap-4 border-b pb-4 last:border-b-0 last:pb-0"
-                  >
-                    <div>
-                      <p className="font-medium">
-                        {item.product_name}
-                      </p>
+          <div className="flex h-full flex-col gap-6">
+            {/* ORDER SUMMARY */}
 
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        Quantity: {item.quantity}
-                      </p>
-                    </div>
+            <section className="flex-1 rounded-xl border bg-card p-5 shadow-sm">
+              <h2 className="text-lg font-semibold">Order summary</h2>
 
-                    {!catalogMode && (
-                      <div className="text-right">
-                        <p className="text-sm text-muted-foreground">
-                          {CURRENCY_SYMBOL}{" "}
-                          {Number(item.unit_price).toFixed(2)} ×{" "}
-                          {item.quantity}
-                        </p>
+              {catalogMode ? (
+                <div className="mt-4 rounded-lg bg-muted/60 p-4 text-center text-sm">
+                  Prices confirmed directly.
+                </div>
+              ) : (
+                <div className="mt-5 space-y-3 text-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Subtotal</span>
 
-                        <p className="font-medium">
-                          {CURRENCY_SYMBOL}{" "}
-                          {Number(item.total_price).toFixed(2)}
-                        </p>
-                      </div>
-                    )}
+                    <span>
+                      {CURRENCY_SYMBOL} {Number(order.subtotal).toFixed(2)}
+                    </span>
                   </div>
-                ))}
-              </div>
 
-              {catalogMode && (
-                <div className="mt-5 rounded-lg bg-muted/50 p-4 text-center text-sm">
-                  <p className="font-medium">
-                    Prices confirmed directly.
-                  </p>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Shipping - dont pay if you book porter</span>
+
+                    <span>
+                      {Number(order.shipping_cost) === 0
+                        ? "Free"
+                        : `${CURRENCY_SYMBOL} ${Number(
+                            order.shipping_cost,
+                          ).toFixed(2)}`}
+                    </span>
+                  </div>
+
+                  <div className="border-t pt-4">
+                    <div className="flex items-center justify-between gap-3 font-semibold">
+                      <span>Total</span>
+
+                      <span>
+                        {CURRENCY_SYMBOL} {Number(order.total).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               )}
             </section>
 
-            {/* Shipping address */}
-            <section className="rounded-xl border p-5">
-              <h2 className="text-lg font-semibold">
-                Shipping address
-              </h2>
+            {/* HISTORY LINK */}
 
-              <div className="mt-4 space-y-1 text-sm">
-                <p className="font-medium">
-                  {order.shipping_name}
-                </p>
+            {/* HISTORY */}
 
-                <p>{order.shipping_address}</p>
+            <section className="rounded-xl border bg-card p-5 shadow-sm">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-semibold">Order history</h2>
 
-                <p>
-                  {order.shipping_postal_code}{" "}
-                  {order.shipping_city}
-                </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    View changes made to this order.
+                  </p>
+                </div>
 
-                <p>{order.shipping_country}</p>
-
-                <p className="pt-2">
-                  {order.shipping_phone}
-                </p>
+                <OrderHistoryDialog items={historyItems} />
               </div>
             </section>
 
-            {/* Customer note */}
-            {order.customer_note ? (
-              <section className="rounded-xl border p-5">
-                <h2 className="text-lg font-semibold">
-                  Note
-                </h2>
 
-                <p className="mt-4 text-sm text-muted-foreground">
-                  {order.customer_note}
-                </p>
-              </section>
-            ) : null}
-
-            {/* Payment - normal mode only */}
-            {!catalogMode && (
-              <section className="rounded-xl border p-5">
-                <h2 className="text-lg font-semibold">
-                  Payment
-                </h2>
-
-                <div className="mt-4 space-y-3 text-sm">
-                  <div className="flex justify-between gap-4">
-                    <span className="text-muted-foreground">
-                      Method
-                    </span>
-
-                    <span className="font-medium">
-                      {paymentLabel}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between gap-4">
-                    <span className="text-muted-foreground">
-                      Status
-                    </span>
-
-                    <span className="font-medium">
-                      {order.payment_status}
-                    </span>
-                  </div>
-                </div>
-              </section>
-            )}
           </div>
+        </div>
 
-          {/* Order summary */}
-          <aside className="h-fit rounded-xl border p-5">
-            <h2 className="text-lg font-semibold">
-              Order summary
-            </h2>
+        {/* =====================================================
+            ONE COMPLETE ORDER FORM
+           
+            IMPORTANT:
+            Everything editable belongs to this ONE component.
+        ===================================================== */}
 
-            {catalogMode ? (
-              <div className="mt-5 rounded-lg bg-muted/50 p-4 text-center">
-                <p className="font-medium">
-                  Prices confirmed directly.
-                </p>
-              </div>
-            ) : (
-              <>
-                <div className="mt-5 flex justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    Subtotal
-                  </span>
-
-                  <span>
-                    {CURRENCY_SYMBOL}{" "}
-                    {Number(order.subtotal).toFixed(2)}
-                  </span>
-                </div>
-
-                <div className="mt-3 flex justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    Shipping
-                  </span>
-
-                  <span>
-                    {Number(order.shipping_cost) === 0
-                      ? "Free"
-                      : `${CURRENCY_SYMBOL} ${Number(
-                          order.shipping_cost,
-                        ).toFixed(2)}`}
-                  </span>
-                </div>
-
-                <div className="mt-4 border-t pt-4">
-                  <div className="flex justify-between font-semibold">
-                    <span>Total</span>
-
-                    <span>
-                      {CURRENCY_SYMBOL}{" "}
-                      {Number(order.total).toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-              </>
-            )}
-
-            <div className="mt-5 rounded-lg bg-muted/50 p-3 text-center text-sm">
-              <p className="text-muted-foreground">
-                Order status
-              </p>
-
-              <p className="mt-1 font-medium">
-                {order.status}
-              </p>
-
-              <OrderStatusHelp />
-            </div>
-          </aside>
+        <div className="mt-6">
+          <EditOrderForm
+            orderId={order.id}
+            status={order.status}
+            shippingName={order.shipping_name ?? ""}
+            shippingPhone={order.shipping_phone ?? ""}
+            shippingAddress={order.shipping_address ?? ""}
+            shippingCity={order.shipping_city ?? ""}
+            shippingPostalCode={order.shipping_postal_code ?? ""}
+            shippingCountry={order.shipping_country ?? ""}
+            customerNote={order.customer_note ?? null}
+            preferredFulfillmentAt={order.preferred_fulfillment_at ?? null}
+            porterStatus={order.porter_status ?? "booked"}
+            porterDetails={order.porter_details ?? null}
+            currentPaymentMethodId={currentPaymentMethodId}
+            paymentMethodOptions={paymentMethodOptions}
+            paymentName={paymentName}
+            paymentSnapshot={paymentSnapshot}
+            catalogMode={catalogMode}
+            orderItems={order.order_items ?? []}
+          />
         </div>
       </div>
     </main>

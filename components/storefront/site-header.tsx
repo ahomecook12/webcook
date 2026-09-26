@@ -66,12 +66,12 @@ const router = useRouter();
         {/* LOGO */}
         <Link href="/" className="shrink-0">
           <Image
-            src="/lcc.svg"
+            src="/ak.svg"
             alt={SHOP_NAME}
-            width={103}
-            height={64}
+            width={60}
+            height={34}
             priority
-            className="h-auto w-[103px]"
+            className="h-auto w-[65px]"
           />
         </Link>
         <div className="flex items-center gap-2">

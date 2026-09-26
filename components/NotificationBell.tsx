@@ -12,6 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { STORE_LOCALE } from "@/app/constants";
 
 type Notification = {
   id: string;
@@ -301,7 +302,7 @@ export default function NotificationBell({
                 <p className="mt-1 text-[11px] text-muted-foreground">
                   {new Date(
                     notification.created_at,
-                  ).toLocaleDateString("en-CH", {
+                  ).toLocaleDateString(STORE_LOCALE, {
                     day: "numeric",
                     month: "short",
                     year: "numeric",

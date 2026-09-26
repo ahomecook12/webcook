@@ -12,7 +12,8 @@ export default function CheckoutForm({
 }: CheckoutFormProps) {
   const router = useRouter();
 
-  const [submitting, setSubmitting] = useState(false);
+  const [submitting, setSubmitting] =
+    useState(false);
 
   async function handleSubmit(
     event: React.FormEvent<HTMLFormElement>,
@@ -47,9 +48,25 @@ export default function CheckoutForm({
     const country = String(
       formData.get("country") ?? "",
     ).trim();
-
+const preferredFulfillmentAt = String(
+  formData.get("preferred_fulfillment_at") ?? "",
+).trim();
     const paymentMethod = String(
       formData.get("payment_method") ?? "",
+    ).trim();
+
+    /*
+     * Delivery uses the existing order fields:
+     *
+     * porter_status
+     * porter_details
+     */
+    const porterStatus = String(
+      formData.get("porter_status") ?? "",
+    ).trim();
+
+    const porterDetails = String(
+      formData.get("porter_details") ?? "",
     ).trim();
 
     /* =====================================================
@@ -87,6 +104,30 @@ export default function CheckoutForm({
     }
 
     /* =====================================================
+       Validate delivery service
+       ===================================================== */
+
+    if (
+      porterStatus !== "booked" &&
+      porterStatus !== "requested"
+    ) {
+      alert(
+        "Please select how the delivery service should be arranged.",
+      );
+      return;
+    }
+
+    if (
+      porterStatus === "booked" &&
+      !porterDetails
+    ) {
+      alert(
+        'Please enter the delivery service details, or select "Request admin to book the delivery service".',
+      );
+      return;
+    }
+
+    /* =====================================================
        Validate payment
        ===================================================== */
 
@@ -102,44 +143,64 @@ export default function CheckoutForm({
       city,
       postal_code: postalCode,
       country,
-      payment_method: paymentMethod,
-    };
 
-   
+      payment_method: paymentMethod,
+  preferred_fulfillment_at:
+    preferredFulfillmentAt || null,
+      /*
+       * Existing orders columns.
+       */
+      porter_status: porterStatus,
+
+      porter_details:
+        porterDetails || null,
+    };
 
     setSubmitting(true);
 
     try {
-      const response = await fetch("/api/orders", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await fetch(
+        "/api/orders",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify(data),
         },
-        body: JSON.stringify(data),
-      });
+      );
 
-      const result = await response.json();
+      const result =
+        await response.json();
 
       if (!response.ok) {
         throw new Error(
-          result.error || "Failed to place order.",
+          result.error ||
+            "Failed to place order.",
         );
       }
 
       router.refresh();
+
       window.dispatchEvent(
-  new CustomEvent("cart-count-change", {
-    detail: { count: 0 },
-  }),
-);
-window.dispatchEvent(new Event("order-completed"));
+        new CustomEvent(
+          "cart-count-change",
+          {
+            detail: { count: 0 },
+          },
+        ),
+      );
+
+      window.dispatchEvent(
+        new Event("order-completed"),
+      );
+
       router.push(
         `/order-success?order=${encodeURIComponent(
           result.order_number,
         )}`,
       );
-
-      
     } catch (error) {
       alert(
         error instanceof Error

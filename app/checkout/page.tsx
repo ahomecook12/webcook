@@ -16,6 +16,19 @@ type CartProduct = {
   stock: number;
 };
 
+type PaymentMethod = {
+  id: string;
+  method_type: string;
+  display_name: string;
+  enabled: boolean;
+  account_name: string | null;
+  phone_number: string | null;
+  payment_url: string | null;
+  instructions: string | null;
+  qr_code_url: string | null;
+  sort_order: number;
+};
+
 export default async function CheckoutPage() {
   const supabase = await createClient();
 
@@ -32,31 +45,42 @@ export default async function CheckoutPage() {
     { data: cart },
     { data: storefrontSettings },
     { data: siteSettings },
+    { data: paymentMethods },
   ] = await Promise.all([
     supabase
       .from("profiles")
-      .select(
-        "role, full_name, phone, address, city, postal_code, country",
-      )
+      .select("role, full_name, phone, address, city, postal_code, country")
       .eq("id", user.id)
       .maybeSingle(),
 
-    supabase
-      .from("carts")
-      .select("id")
-      .eq("user_id", user.id)
-      .maybeSingle(),
+    supabase.from("carts").select("id").eq("user_id", user.id).maybeSingle(),
 
-    supabase
-      .from("storefront_settings")
-      .select("*")
-      .maybeSingle(),
+    supabase.from("storefront_settings").select("*").maybeSingle(),
 
     supabase
       .from("site_settings")
       .select("catalog_mode")
       .eq("id", true)
       .maybeSingle(),
+
+    supabase
+      .from("payment_methods")
+      .select(
+        `
+          id,
+          method_type,
+          display_name,
+          enabled,
+          account_name,
+          phone_number,
+          payment_url,
+          instructions,
+          qr_code_url,
+          sort_order
+        `,
+      )
+      .eq("enabled", true)
+      .order("sort_order", { ascending: true }),
   ]);
 
   if (!cart) {
@@ -114,8 +138,7 @@ export default async function CheckoutPage() {
   const subtotal = validItems.reduce((total, item) => {
     if (!item.product) return total;
 
-    const price =
-      item.product.sale_price ?? item.product.price;
+    const price = item.product.sale_price ?? item.product.price;
 
     return total + Number(price) * item.quantity;
   }, 0);
@@ -130,9 +153,7 @@ export default async function CheckoutPage() {
     <main className="min-h-screen bg-background">
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
         <div className="mb-8">
-          <h1 className="text-3xl font-semibold tracking-tight">
-            Checkout
-          </h1>
+          <h1 className="text-3xl font-semibold tracking-tight">Checkout</h1>
 
           <p className="mt-2 text-muted-foreground">
             {catalogMode
@@ -144,18 +165,15 @@ export default async function CheckoutPage() {
         <CheckoutForm>
           <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
             <div className="space-y-6">
-              {/* SHIPPING ADDRESS */}
+              {/* =====================================================
+                  SHIPPING ADDRESS
+              ===================================================== */}
               <section className="rounded-xl border p-5">
-                <h2 className="text-lg font-semibold">
-                  Shipping address
-                </h2>
+                <h2 className="text-lg font-semibold">Shipping address</h2>
 
                 <div className="mt-4 space-y-4">
                   <div className="space-y-2">
-                    <label
-                      htmlFor="full-name"
-                      className="text-sm font-medium"
-                    >
+                    <label htmlFor="full-name" className="text-sm font-medium">
                       Full name
                     </label>
 
@@ -169,10 +187,7 @@ export default async function CheckoutPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label
-                      htmlFor="phone"
-                      className="text-sm font-medium"
-                    >
+                    <label htmlFor="phone" className="text-sm font-medium">
                       Phone
                     </label>
 
@@ -186,10 +201,7 @@ export default async function CheckoutPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label
-                      htmlFor="address"
-                      className="text-sm font-medium"
-                    >
+                    <label htmlFor="address" className="text-sm font-medium">
                       Address
                     </label>
 
@@ -221,10 +233,7 @@ export default async function CheckoutPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <label
-                        htmlFor="city"
-                        className="text-sm font-medium"
-                      >
+                      <label htmlFor="city" className="text-sm font-medium">
                         City
                       </label>
 
@@ -232,17 +241,14 @@ export default async function CheckoutPage() {
                         id="city"
                         name="city"
                         type="text"
-                        defaultValue={profile?.city ?? ""}
+                        defaultValue={profile?.city ?? "Bangalore"}
                         className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
                       />
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <label
-                      htmlFor="country"
-                      className="text-sm font-medium"
-                    >
+                    <label htmlFor="country" className="text-sm font-medium">
                       Country
                     </label>
 
@@ -250,28 +256,60 @@ export default async function CheckoutPage() {
                       id="country"
                       name="country"
                       type="text"
-                      defaultValue={
-                        profile?.country ?? "Switzerland"
-                      }
+                      defaultValue={profile?.country ?? "India"}
                       className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
                     />
                   </div>
                 </div>
               </section>
 
-              {/* ITEMS */}
+{/* =====================================================
+    PREFERRED FULFILLMENT
+===================================================== */}
+<section className="rounded-xl border p-5">
+  <h2 className="text-lg font-semibold">
+    Preferred fulfillment
+  </h2>
+
+  <p className="mt-1 text-sm text-muted-foreground">
+    Let us know when you would prefer your order to be fulfilled.
+  </p>
+
+  <div className="mt-4 space-y-2">
+    <label
+      htmlFor="preferred-fulfillment-at"
+      className="text-sm font-medium"
+    >
+      Preferred date and time
+    </label>
+
+    <input
+      id="preferred-fulfillment-at"
+      name="preferred_fulfillment_at"
+      type="datetime-local"
+      className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
+    />
+
+    <p className="text-xs text-muted-foreground">
+      This is your preferred fulfillment time and is not a guaranteed
+      delivery time.
+    </p>
+  </div>
+</section>
+              {/* =====================================================
+                  ITEMS
+              ===================================================== */}
               <section className="rounded-xl border p-5">
-                <h2 className="text-lg font-semibold">
-                  Your items
-                </h2>
+                <h2 className="text-lg font-semibold">Your items</h2>
 
                 <div className="mt-5 space-y-4">
                   {validItems.map((item) => {
                     if (!item.product) return null;
 
                     const product = item.product;
-                    const price =
-                      product.sale_price ?? product.price;
+
+                    const price = product.sale_price ?? product.price;
+
                     const image = product.images?.[0];
 
                     return (
@@ -295,9 +333,7 @@ export default async function CheckoutPage() {
                         )}
 
                         <div className="min-w-0 flex-1">
-                          <p className="font-medium">
-                            {product.name}
-                          </p>
+                          <p className="font-medium">{product.name}</p>
 
                           {catalogMode ? (
                             <p className="mt-1 text-sm text-muted-foreground">
@@ -305,8 +341,7 @@ export default async function CheckoutPage() {
                             </p>
                           ) : (
                             <p className="mt-1 text-sm text-muted-foreground">
-                              {CURRENCY_SYMBOL}{" "}
-                              {Number(price).toFixed(2)} ×{" "}
+                              {CURRENCY_SYMBOL} {Number(price).toFixed(2)} ×{" "}
                               {item.quantity}
                             </p>
                           )}
@@ -315,10 +350,7 @@ export default async function CheckoutPage() {
                         {!catalogMode && (
                           <p className="font-medium">
                             {CURRENCY_SYMBOL}{" "}
-                            {(
-                              Number(price) *
-                              item.quantity
-                            ).toFixed(2)}
+                            {(Number(price) * item.quantity).toFixed(2)}
                           </p>
                         )}
                       </div>
@@ -327,83 +359,112 @@ export default async function CheckoutPage() {
                 </div>
               </section>
 
-              {/* SHIPPING */}
-              <section className="rounded-xl border p-5">
-                <h2 className="text-lg font-semibold">
-                  Shipping
-                </h2>
+{/* =====================================================
+    DELIVERY SERVICE
+===================================================== */}
+<section className="rounded-xl border p-5">
+  <h2 className="text-lg font-semibold">
+    Delivery service
+  </h2>
 
-                {storefrontSettings?.shipping_enabled ? (
-                  <div className="mt-4">
-                    <p className="font-medium">
-                      {storefrontSettings.shipping_method ||
-                        "Shipping"}
-                    </p>
+  <p className="mt-1 text-sm text-muted-foreground">
+    Choose who should arrange the delivery service.
+  </p>
 
-                    {!catalogMode && (
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {storefrontSettings.free_shipping
-                          ? "Free shipping"
-                          : `${CURRENCY_SYMBOL} ${shippingPrice.toFixed(2)}`}
-                      </p>
-                    )}
+  <div className="mt-4 space-y-4">
+    {/* CUSTOMER BOOKS */}
+    <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition hover:bg-muted/40">
+      <input
+        type="radio"
+        name="porter_status"
+        value="booked"
+        className="mt-1 h-4 w-4"
+      />
 
-                    {catalogMode && (
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        Shipping details will be confirmed with you.
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <p className="mt-4 text-sm text-muted-foreground">
-                    Shipping is currently unavailable.
-                  </p>
-                )}
-              </section>
+      <span>
+        <span className="block font-medium">
+          I will book the delivery service myself
+        </span>
 
-              <CheckoutPayment
-                twintEnabled={
-                  storefrontSettings?.twint_enabled ?? false
-                }
-                twintPhone={
-                  storefrontSettings?.twint_phone ?? null
-                }
-                bankTransferEnabled={
-                  storefrontSettings?.bank_transfer_enabled ??
-                  false
-                }
-                bankAccountName={
-                  storefrontSettings?.bank_account_name ?? null
-                }
-                bankIban={
-                  storefrontSettings?.bank_iban ?? null
-                }
-              />
+        <span className="mt-1 block text-xs text-muted-foreground">
+          Add the delivery company, contact details, or other
+          delivery information below.
+        </span>
+      </span>
+    </label>
+
+    {/* ADMIN BOOKS */}
+    <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition hover:bg-muted/40">
+      <input
+        type="radio"
+        name="porter_status"
+        value="requested"
+        defaultChecked
+        className="mt-1 h-4 w-4"
+      />
+
+      <span>
+        <span className="block font-medium">
+          Request admin to book the delivery service
+        </span>
+
+        <span className="mt-1 block text-xs text-muted-foreground">
+          We will arrange the delivery service for you.
+          Extra delivery charges may apply.
+        </span>
+      </span>
+    </label>
+
+    {/* DETAILS */}
+    <div className="space-y-2">
+      <label
+        htmlFor="porter-details"
+        className="text-sm font-medium"
+      >
+        Delivery details
+      </label>
+
+      <textarea
+        id="porter-details"
+        name="porter_details"
+        rows={4}
+        placeholder="Add the delivery company, contact details, or notes"
+        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+      />
+
+      <p className="text-xs text-muted-foreground">
+        If you ask us to arrange the delivery, you can leave this blank.
+      </p>
+    </div>
+  </div>
+</section>
+
+
+              {/* =====================================================
+                  PAYMENT
+              ===================================================== */}
+              <CheckoutPayment paymentMethods={paymentMethods ?? []} />
             </div>
 
-            {/* ORDER SUMMARY */}
+            {/* =====================================================
+                ORDER SUMMARY
+            ===================================================== */}
             <aside className="h-fit rounded-xl border p-5">
-              <h2 className="text-lg font-semibold">
-                Order summary
-              </h2>
+              <h2 className="text-lg font-semibold">Order summary</h2>
 
               {catalogMode ? (
                 <div className="mt-5 rounded-lg bg-muted/50 p-4">
-                  <p className="text-sm font-medium">
-                    Price details
-                  </p>
+                  <p className="text-sm font-medium">Price details</p>
 
                   <p className="mt-1 text-sm text-muted-foreground">
-                    We will contact you after your order with
-                    the price and shipping details.
+                    We will contact you after your order with the price and
+                    shipping details.
                   </p>
                 </div>
               ) : (
                 <>
                   <div className="mt-5 flex justify-between text-sm">
-                    <span className="text-muted-foreground">
-                      Subtotal
-                    </span>
+                    <span className="text-muted-foreground">Subtotal</span>
 
                     <span>
                       {CURRENCY_SYMBOL} {subtotal.toFixed(2)}
@@ -411,9 +472,7 @@ export default async function CheckoutPage() {
                   </div>
 
                   <div className="mt-3 flex justify-between text-sm">
-                    <span className="text-muted-foreground">
-                      Shipping
-                    </span>
+                    <span className="text-muted-foreground">Shipping - dont pay if you book porter</span>
 
                     <span>
                       {shippingPrice === 0

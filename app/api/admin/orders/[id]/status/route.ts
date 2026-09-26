@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+
 import { requireAdmin } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
@@ -35,6 +36,7 @@ export async function PATCH(
   }
 
   const body = await request.json();
+
   const newStatus = body.status as string;
 
   if (
@@ -50,9 +52,18 @@ export async function PATCH(
 
   const supabase = await createClient();
 
-  const { data: order, error: orderError } = await supabase
+  /* =====================================================
+     Get order
+     ===================================================== */
+
+  const {
+    data: order,
+    error: orderError,
+  } = await supabase
     .from("orders")
-   .select("id, user_id, order_number, status, payment_status")
+    .select(
+      "id, user_id, order_number, status, payment_status",
+    )
     .eq("id", id)
     .maybeSingle();
 
@@ -70,6 +81,21 @@ export async function PATCH(
     );
   }
 
+  /* =====================================================
+     Prevent unnecessary update
+     ===================================================== */
+
+  if (newStatus === order.status) {
+    return NextResponse.json({
+      success: true,
+      status: order.status,
+    });
+  }
+
+  /* =====================================================
+     Payment validation
+     ===================================================== */
+
   if (
     newStatus !== "cancelled" &&
     order.payment_status !== "paid"
@@ -82,6 +108,10 @@ export async function PATCH(
       { status: 400 },
     );
   }
+
+  /* =====================================================
+     Prepare status timestamps
+     ===================================================== */
 
   const now = new Date().toISOString();
 
@@ -109,73 +139,104 @@ export async function PATCH(
     updateData.delivered_at = null;
   }
 
-  const { error } = await supabase
+  /* =====================================================
+     Update order
+     ===================================================== */
+
+  const { error: updateError } = await supabase
     .from("orders")
     .update(updateData)
     .eq("id", id);
 
-  if (error) {
+  if (updateError) {
     return NextResponse.json(
-      { error: error.message },
+      { error: updateError.message },
       { status: 500 },
     );
   }
-/* =====================================================
-   Create order status notification
-   ===================================================== */
 
-const notificationContent: Record<
-  AllowedStatus,
-  { type: string; title: string; message: string }
-> = {
-  processing: {
-    type: "order_processing",
-    title: "Order is being processed",
-    message: `Your order ${order.order_number} is now being processed.`,
-  },
+  /* =====================================================
+     Customer notification
+     ===================================================== */
 
-  shipped: {
-    type: "order_shipped",
-    title: "Order shipped",
-    message: `Your order ${order.order_number} has been shipped.`,
-  },
+  const notificationContent: Record<
+    AllowedStatus,
+    {
+      type: string;
+      title: string;
+      message: string;
+    }
+  > = {
+    processing: {
+      type: "order_processing",
+      title: "Order is being processed",
+      message:
+        `Your order ${order.order_number} ` +
+        `is now being processed.`,
+    },
 
-  delivered: {
-    type: "order_delivered",
-    title: "Order delivered",
-    message: `Your order ${order.order_number} has been delivered.`,
-  },
+    shipped: {
+      type: "order_shipped",
+      title: "Order shipped",
+      message:
+        `Your order ${order.order_number} ` +
+        `has been shipped.`,
+    },
 
-  cancelled: {
-    type: "order_cancelled",
-    title: "Order cancelled",
-    message: `Your order ${order.order_number} has been cancelled.`,
-  },
-};
+    delivered: {
+      type: "order_delivered",
+      title: "Order delivered",
+      message:
+        `Your order ${order.order_number} ` +
+        `has been delivered.`,
+    },
 
-const notification = notificationContent[
-  newStatus as AllowedStatus
-];
+    cancelled: {
+      type: "order_cancelled",
+      title: "Order cancelled",
+      message:
+        `Your order ${order.order_number} ` +
+        `has been cancelled.`,
+    },
+  };
 
-const serviceSupabase = createServiceRoleClient();
+  const customerNotification =
+    notificationContent[
+      newStatus as AllowedStatus
+    ];
 
-const { error: notificationError } =
-  await serviceSupabase
+  const serviceSupabase =
+    createServiceRoleClient();
+
+  const {
+    error: notificationError,
+  } = await serviceSupabase
     .from("notifications")
     .insert({
       user_id: order.user_id,
-      type: notification.type,
-      title: notification.title,
-      message: notification.message,
+
+      type: customerNotification.type,
+
+      title: customerNotification.title,
+
+      message: customerNotification.message,
+
       order_id: order.id,
     });
 
-if (notificationError) {
-  console.error(
-    "Failed to create order notification:",
-    notificationError,
-  );
-}
+  if (notificationError) {
+    console.error(
+      "Failed to create customer order notification:",
+      notificationError,
+    );
+  }
+
+  
+
+  /* =====================================================
+     Success
+     ===================================================== */
+
   return NextResponse.json({
     success: true,
     status: newStatus,

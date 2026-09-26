@@ -1,3 +1,4 @@
+import { SHOP_NAME } from "@/app/constants";
 import { NextResponse } from "next/server";
 
 const OPENROUTER_URL =
@@ -149,7 +150,7 @@ IMPORTANT:
             process.env.NEXT_PUBLIC_SITE_URL ||
             "http://localhost:3000",
           "X-Title":
-            "Lucky Charm Creation AI Search",
+            `${SHOP_NAME} AI Search`,
         },
         body: JSON.stringify({
           model: MODEL,

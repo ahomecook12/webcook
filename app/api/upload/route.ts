@@ -10,29 +10,20 @@ export async function POST(request: Request) {
     // Authentication
     // -------------------------------------------------------
 
-    const authorization =
-      request.headers.get("authorization");
+    const authorization = request.headers.get("authorization");
 
-    const accessToken =
-      authorization?.startsWith("Bearer ")
-        ? authorization.slice(7)
-        : undefined;
+    const accessToken = authorization?.startsWith("Bearer ")
+      ? authorization.slice(7)
+      : undefined;
 
-    const { user, isAdmin } =
-      await requireAdmin(accessToken);
+    const { user, isAdmin } = await requireAdmin(accessToken);
 
     if (!user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 },
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     if (!isAdmin) {
-      return NextResponse.json(
-        { error: "Forbidden" },
-        { status: 403 },
-      );
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // -------------------------------------------------------
@@ -45,10 +36,7 @@ export async function POST(request: Request) {
     const folder = formData.get("folder");
 
     if (!file) {
-      return NextResponse.json(
-        { error: "No file provided" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
     // -------------------------------------------------------
@@ -56,10 +44,7 @@ export async function POST(request: Request) {
     // -------------------------------------------------------
 
     if (file.size > MAX_FILE_SIZE) {
-      const sizeInMB = (
-        file.size /
-        (1024 * 1024)
-      ).toFixed(2);
+      const sizeInMB = (file.size / (1024 * 1024)).toFixed(2);
 
       return NextResponse.json(
         {
@@ -76,14 +61,10 @@ export async function POST(request: Request) {
     // FILE TYPE
     // -------------------------------------------------------
 
-    if (
-      !file.type.startsWith("image/") &&
-      !file.type.startsWith("video/")
-    ) {
+    if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
       return NextResponse.json(
         {
-          error:
-            "Only image and video files can be uploaded.",
+          error: "Only image and video files can be uploaded.",
         },
         { status: 400 },
       );
@@ -99,7 +80,8 @@ export async function POST(request: Request) {
       folder !== "category" &&
       folder !== "products" &&
       folder !== "social" &&
-folder !== "reviews"
+      folder !== "reviews" &&
+      folder !== "payment-methods"
     ) {
       return NextResponse.json(
         { error: "Invalid upload folder" },
@@ -130,11 +112,11 @@ folder !== "reviews"
                     ? "shop/social"
                     : folder === "reviews"
                       ? "shop/reviews"
-                      : "shop/products",
+                      : folder === "payment-methods"
+                        ? "shop/payment-methods"
+                        : "shop/products",
 
-            resource_type: file.type.startsWith("video/")
-              ? "video"
-              : "image",
+            resource_type: file.type.startsWith("video/") ? "video" : "image",
           },
           (error, result) => {
             if (error) {
@@ -145,11 +127,7 @@ folder !== "reviews"
                 public_id: result.public_id,
               });
             } else {
-              reject(
-                new Error(
-                  "Cloudinary returned no result",
-                ),
-              );
+              reject(new Error("Cloudinary returned no result"));
             }
           },
         )
@@ -165,17 +143,11 @@ folder !== "reviews"
       public_id: result.public_id,
     });
   } catch (error) {
-    console.error(
-      "Cloudinary upload error:",
-      error,
-    );
+    console.error("Cloudinary upload error:", error);
 
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Upload failed",
+        error: error instanceof Error ? error.message : "Upload failed",
       },
       { status: 500 },
     );

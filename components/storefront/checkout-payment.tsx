@@ -1,117 +1,124 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 
+export type CheckoutPaymentMethod = {
+  id: string;
+  method_type: string;
+  display_name: string;
+  enabled: boolean;
+  account_name: string | null;
+  phone_number: string | null;
+  payment_url: string | null;
+  instructions: string | null;
+  qr_code_url: string | null;
+  sort_order: number;
+};
+
 type CheckoutPaymentProps = {
-  twintEnabled: boolean;
-  twintPhone: string | null;
-  bankTransferEnabled: boolean;
-  bankAccountName: string | null;
-  bankIban: string | null;
+  paymentMethods: CheckoutPaymentMethod[];
 };
 
 export default function CheckoutPayment({
-  twintEnabled,
-  twintPhone,
-  bankTransferEnabled,
-  bankAccountName,
-  bankIban,
+  paymentMethods,
 }: CheckoutPaymentProps) {
-  const [paymentMethod, setPaymentMethod] = useState<
-    "twint" | "bank_transfer" | ""
-  >("");
+  const [paymentMethod, setPaymentMethod] = useState("");
 
-  const hasPaymentMethod =
-    twintEnabled || bankTransferEnabled;
+  const enabledPaymentMethods = paymentMethods
+    .filter((method) => method.enabled)
+    .sort((a, b) => a.sort_order - b.sort_order);
 
   return (
     <section className="rounded-xl border p-5">
-      <h2 className="text-lg font-semibold">
-        Payment method
-      </h2>
+      <h2 className="text-lg font-semibold">Payment method</h2>
 
-      {hasPaymentMethod ? (
+      {enabledPaymentMethods.length > 0 ? (
         <div className="mt-4 space-y-3">
-          {twintEnabled && (
-            <label
-              className={`block cursor-pointer rounded-lg border p-4 ${
-                paymentMethod === "twint"
-                  ? "border-primary bg-muted/50"
-                  : ""
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <input
-                  type="radio"
-                  name="payment-method"
-                  value="twint"
-                  checked={paymentMethod === "twint"}
-                  onChange={() =>
-                    setPaymentMethod("twint")
-                  }
-                />
+          {enabledPaymentMethods.map((method) => {
+            const selected = paymentMethod === method.id;
 
-                <span className="font-medium">
-                  TWINT
-                </span>
-              </div>
+            return (
+              <label
+                key={method.id}
+                className={`block cursor-pointer rounded-lg border p-4 ${
+                  selected ? "border-primary bg-muted/50" : ""
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <input
+                    type="radio"
+                    name="payment-method-selector"
+                    value={method.id}
+                    checked={selected}
+                    onChange={() => setPaymentMethod(method.id)}
+                  />
 
-              {twintPhone && (
-                <p className="mt-2 pl-7 text-sm text-muted-foreground">
-                  Send your payment to:{" "}
-                  <span className="font-medium text-foreground">
-                    {twintPhone}
+                  <span className="font-medium">
+                    {method.display_name || "Payment"}
                   </span>
-                </p>
-              )}
-            </label>
-          )}
+                </div>
 
-          {bankTransferEnabled && (
-            <label
-              className={`block cursor-pointer rounded-lg border p-4 ${
-                paymentMethod === "bank_transfer"
-                  ? "border-primary bg-muted/50"
-                  : ""
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <input
-                  type="radio"
-                  name="payment-method"
-                  value="bank_transfer"
-                  checked={paymentMethod === "bank_transfer"}
-                  onChange={() =>
-                    setPaymentMethod("bank_transfer")
-                  }
-                />
+                {/* PAYMENT DETAILS */}
+                <div className="mt-3 space-y-3 pl-7">
+                  {method.account_name && (
+                    <p className="text-sm text-muted-foreground">
+                      Name / account holder:{" "}
+                      <span className="font-medium text-foreground">
+                        {method.account_name}
+                      </span>
+                    </p>
+                  )}
 
-                <span className="font-medium">
-                  Bank Transfer
-                </span>
-              </div>
+                  {method.phone_number && (
+                    <p className="text-sm text-muted-foreground">
+                      Phone number:{" "}
+                      <span className="font-medium text-foreground">
+                        {method.phone_number}
+                      </span>
+                    </p>
+                  )}
 
-              <div className="mt-2 space-y-1 pl-7 text-sm text-muted-foreground">
-                {bankAccountName && (
-                  <p>
-                    Account name:{" "}
-                    <span className="font-medium text-foreground">
-                      {bankAccountName}
-                    </span>
-                  </p>
-                )}
+                  {method.payment_url && (
+                    <div>
+                      <a
+                        href={method.payment_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-medium underline"
+                      >
+                        Make payment
+                      </a>
+                    </div>
+                  )}
 
-                {bankIban && (
-                  <p>
-                    IBAN:{" "}
-                    <span className="font-medium text-foreground">
-                      {bankIban}
-                    </span>
-                  </p>
-                )}
-              </div>
-            </label>
-          )}
+                  {method.instructions && (
+                    <p className="whitespace-pre-line text-sm text-muted-foreground">
+                      {method.instructions}
+                    </p>
+                  )}
+
+                  {method.qr_code_url && (
+                    <div className="pt-2">
+                      <p className="mb-2 text-sm font-medium">
+                        Scan to pay
+                      </p>
+
+                      <div className="relative h-48 w-48 overflow-hidden rounded-lg border bg-white">
+                        <Image
+                          src={method.qr_code_url}
+                          alt={`${method.display_name || "Payment"} QR code`}
+                          fill
+                          unoptimized
+                          className="object-contain p-2"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </label>
+            );
+          })}
         </div>
       ) : (
         <p className="mt-4 text-sm text-muted-foreground">

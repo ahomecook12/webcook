@@ -23,11 +23,25 @@ export type SiteSettings = {
   customer_review_images: string[] | null;
   catalog_mode: boolean;
 };
+
 export type SocialLink = {
   id: string;
   name: string;
   url: string;
   icon_url: string;
+};
+
+export type PaymentMethod = {
+  id: string;
+  method_type: string;
+  display_name: string;
+  enabled: boolean;
+  account_name: string | null;
+  phone_number: string | null;
+  payment_url: string | null;
+  instructions: string | null;
+  qr_code_url: string | null;
+  sort_order: number;
 };
 
 export type StorefrontSettings = {
@@ -36,14 +50,6 @@ export type StorefrontSettings = {
   // Social
   social_enabled: boolean;
   social_links: SocialLink[];
-
-  // Payment
-  twint_enabled: boolean;
-  twint_phone: string | null;
-
-  bank_transfer_enabled: boolean;
-  bank_account_name: string | null;
-  bank_iban: string | null;
 
   // Shipping
   shipping_enabled: boolean;
@@ -82,10 +88,12 @@ export function SiteSettingsForm({
   settings,
   categories = [],
   storefrontSettings,
+  paymentMethods = [],
 }: {
   settings: SiteSettings | null;
   categories?: HomepageCategory[];
   storefrontSettings: StorefrontSettings | null;
+  paymentMethods?: PaymentMethod[];
 }) {
   const router = useRouter();
 
@@ -136,23 +144,10 @@ export function SiteSettingsForm({
    * ---------------------------------------------------------
    */
 
-  const [twintEnabled, setTwintEnabled] = useState(
-    storefrontSettings?.twint_enabled ?? false,
-  );
+  const [paymentMethodsState, setPaymentMethodsState] =
+    useState<PaymentMethod[]>(paymentMethods);
 
-  const [twintPhone, setTwintPhone] = useState(
-    storefrontSettings?.twint_phone ?? "",
-  );
-
-  const [bankTransferEnabled, setBankTransferEnabled] = useState(
-    storefrontSettings?.bank_transfer_enabled ?? false,
-  );
-
-  const [bankAccountName, setBankAccountName] = useState(
-    storefrontSettings?.bank_account_name ?? "",
-  );
-
-  const [bankIban, setBankIban] = useState(storefrontSettings?.bank_iban ?? "");
+  const [paymentUploading, setPaymentUploading] = useState(false);
 
   /*
    * ---------------------------------------------------------
@@ -199,7 +194,7 @@ export function SiteSettingsForm({
   );
 
   const [storeCountry, setStoreCountry] = useState(
-    storefrontSettings?.store_country ?? "Switzerland",
+    storefrontSettings?.store_country ?? "India",
   );
 
   /*
@@ -497,6 +492,173 @@ export function SiteSettingsForm({
       );
     }
   }
+
+  function addPaymentMethod() {
+    setPaymentMethodsState((current) => [
+      ...current,
+      {
+        id: crypto.randomUUID(),
+        method_type: "custom",
+        display_name: "",
+        enabled: true,
+        account_name: null,
+        phone_number: null,
+        payment_url: null,
+        instructions: null,
+        qr_code_url: null,
+        sort_order: current.length,
+      },
+    ]);
+  }
+
+  function updatePaymentMethod(
+    id: string,
+    field: keyof PaymentMethod,
+    value: string | boolean | number | null,
+  ) {
+    setPaymentMethodsState((current) =>
+      current.map((method) =>
+        method.id === id ? { ...method, [field]: value } : method,
+      ),
+    );
+  }
+
+async function removePaymentMethod(id: string) {
+  const paymentMethod = paymentMethodsState.find(
+    (method) => method.id === id,
+  );
+
+  if (!paymentMethod) return;
+
+  const confirmed = window.confirm(
+    `Are you sure you want to remove "${paymentMethod.display_name}"?`,
+  );
+
+  if (!confirmed) return;
+
+  try {
+    // Delete QR image from Cloudinary first
+    if (paymentMethod.qr_code_url) {
+      const response = await fetch("/api/admin/cloudinary/delete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          url: paymentMethod.qr_code_url,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error("Payment QR deletion failed:", data);
+
+        alert(
+          data.error ||
+            "Could not delete the payment QR image from Cloudinary.",
+        );
+
+        return;
+      }
+    }
+
+    // Remove payment method from local form state
+    setPaymentMethodsState((current) =>
+      current.filter((method) => method.id !== id),
+    );
+  } catch (error) {
+    console.error("Payment method removal error:", error);
+
+    alert(
+      error instanceof Error
+        ? error.message
+        : "Failed to remove payment method.",
+    );
+  }
+}
+
+async function uploadPaymentQrCode(
+  event: React.ChangeEvent<HTMLInputElement>,
+  id: string,
+) {
+  const file = event.target.files?.[0];
+
+  event.target.value = "";
+
+  if (!file) return;
+
+  setPaymentUploading(true);
+
+  try {
+    if (!file.type.startsWith("image/")) {
+      throw new Error("QR code must be an image.");
+    }
+
+    // Get the existing QR code BEFORE replacing it
+    const paymentMethod = paymentMethodsState.find((method) => method.id === id);
+    const oldQrCodeUrl = paymentMethod?.qr_code_url ?? null;
+
+    // Upload new QR code
+    const body = new FormData();
+
+    body.append("file", file);
+    body.append("folder", "payment-methods");
+
+    const response = await fetch("/api/upload", {
+      method: "POST",
+      body,
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "QR code upload failed.");
+    }
+
+    const newQrCodeUrl = data.url as string;
+
+    // Update UI with new image
+    updatePaymentMethod(id, "qr_code_url", newQrCodeUrl);
+
+    // Delete old Cloudinary image
+    if (oldQrCodeUrl && oldQrCodeUrl !== newQrCodeUrl) {
+      try {
+        const deleteResponse = await fetch("/api/admin/cloudinary/delete", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            url: oldQrCodeUrl,
+          }),
+        });
+
+        const deleteData = await deleteResponse.json();
+
+        if (!deleteResponse.ok) {
+          console.error(
+            "Old payment QR deletion failed:",
+            deleteData,
+          );
+        }
+      } catch (deleteError) {
+        console.error(
+          "Old payment QR deletion failed:",
+          deleteError,
+        );
+      }
+    }
+  } catch (error) {
+    alert(
+      error instanceof Error
+        ? error.message
+        : "QR code upload failed.",
+    );
+  } finally {
+    setPaymentUploading(false);
+  }
+}
   /*
    * ---------------------------------------------------------
    * SAVE EVERYTHING
@@ -557,19 +719,6 @@ export function SiteSettingsForm({
         social_links: socialLinks,
 
         /*
-         * Payment
-         */
-        twint_enabled: twintEnabled,
-
-        twint_phone: twintPhone.trim() || null,
-
-        bank_transfer_enabled: bankTransferEnabled,
-
-        bank_account_name: bankAccountName.trim() || null,
-
-        bank_iban: bankIban.trim() || null,
-
-        /*
          * Shipping
          */
         shipping_enabled: shippingEnabled,
@@ -591,7 +740,7 @@ export function SiteSettingsForm({
 
         store_postal_code: storePostalCode.trim() || null,
 
-        store_country: storeCountry.trim() || "Switzerland",
+        store_country: storeCountry.trim() || "India",
       };
 
       /*
@@ -615,7 +764,78 @@ export function SiteSettingsForm({
       if (storefrontError) {
         throw storefrontError;
       }
+      /*
+       * -----------------------------------------------------
+       * SAVE PAYMENT METHODS
+       * -----------------------------------------------------
+       */
 
+      const existingPaymentMethodIds = new Set(
+        paymentMethodsState.map((method) => method.id),
+      );
+
+      /*
+       * Find the payment methods currently stored in Supabase.
+       * We need this so that methods removed from the settings page
+       * can also be removed from the database.
+       */
+      const { data: existingPaymentMethods, error: existingError } =
+        await supabase.from("payment_methods").select("id");
+
+      if (existingError) {
+        throw existingError;
+      }
+
+      /*
+       * Delete payment methods that the admin removed.
+       */
+      const idsToDelete = (existingPaymentMethods ?? [])
+        .map((method) => method.id)
+        .filter((id) => !existingPaymentMethodIds.has(id));
+
+      if (idsToDelete.length > 0) {
+        const { error: deleteError } = await supabase
+          .from("payment_methods")
+          .delete()
+          .in("id", idsToDelete);
+
+        if (deleteError) {
+          throw deleteError;
+        }
+      }
+
+      /*
+       * Insert/update the methods that are still present.
+       *
+       * IMPORTANT:
+       * Existing IDs are preserved. This is what allows
+       * order_payment_history to continue referring to the
+       * correct payment method.
+       */
+      if (paymentMethodsState.length > 0) {
+        const paymentRows = paymentMethodsState.map((method, index) => ({
+          id: method.id,
+          method_type: method.method_type.trim() || "custom",
+          display_name: method.display_name.trim() || "Payment",
+          enabled: method.enabled,
+          account_name: method.account_name?.trim() || null,
+          phone_number: method.phone_number?.trim() || null,
+          payment_url: method.payment_url?.trim() || null,
+          instructions: method.instructions?.trim() || null,
+          qr_code_url: method.qr_code_url?.trim() || null,
+          sort_order: index,
+        }));
+
+        const { error: paymentMethodsError } = await supabase
+          .from("payment_methods")
+          .upsert(paymentRows, {
+            onConflict: "id",
+          });
+
+        if (paymentMethodsError) {
+          throw paymentMethodsError;
+        }
+      }
       /*
        * -----------------------------------------------------
        * SUCCESS
@@ -1275,86 +1495,332 @@ export function SiteSettingsForm({
             PAYMENT
         ====================================================== */}
 
+        {/* =====================================================
+            PAYMENT METHODS
+        ====================================================== */}
+
         <Card>
           <CardHeader>
             <CardTitle>Payment Methods</CardTitle>
 
             <p className="text-sm text-muted-foreground">
-              Choose which manual payment methods customers can use.
+              Add and manage the payment methods customers can choose when
+              placing an order. You can add multiple payment methods.
             </p>
           </CardHeader>
 
-          <CardContent className="space-y-6">
-            {/* TWINT */}
+          <CardContent className="space-y-5">
+            {paymentMethodsState.length > 0 && (
+              <div className="space-y-4">
+                {paymentMethodsState.map((method, index) => (
+                  <div key={method.id} className="rounded-xl border p-4">
+                    <div className="mb-4 flex items-center justify-between gap-3">
+                      <div>
+                        <p className="font-medium">
+                          {method.display_name || `Payment method ${index + 1}`}
+                        </p>
 
-            <div className="space-y-3">
-              <label className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={twintEnabled}
-                  onChange={(event) => setTwintEnabled(event.target.checked)}
-                />
+                        <p className="text-xs text-muted-foreground">
+                          {method.method_type || "custom"}
+                        </p>
+                      </div>
 
-                <span className="font-medium">Enable TWINT</span>
-              </label>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={index === 0}
+                          onClick={() => {
+                            setPaymentMethodsState((current) => {
+                              const next = [...current];
 
-              {twintEnabled && (
-                <div className="space-y-2">
-                  <Label htmlFor="twint-phone">TWINT phone number</Label>
+                              [next[index - 1], next[index]] = [
+                                next[index],
+                                next[index - 1],
+                              ];
 
-                  <Input
-                    id="twint-phone"
-                    value={twintPhone}
-                    onChange={(event) => setTwintPhone(event.target.value)}
-                    placeholder="+41 ..."
-                  />
-                </div>
-              )}
-            </div>
+                              return next;
+                            });
+                          }}
+                        >
+                          ↑
+                        </Button>
 
-            {/* BANK TRANSFER */}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={index === paymentMethodsState.length - 1}
+                          onClick={() => {
+                            setPaymentMethodsState((current) => {
+                              const next = [...current];
 
-            <div className="space-y-3">
-              <label className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={bankTransferEnabled}
-                  onChange={(event) =>
-                    setBankTransferEnabled(event.target.checked)
-                  }
-                />
+                              [next[index], next[index + 1]] = [
+                                next[index + 1],
+                                next[index],
+                              ];
 
-                <span className="font-medium">Enable Bank Transfer</span>
-              </label>
+                              return next;
+                            });
+                          }}
+                        >
+                          ↓
+                        </Button>
 
-              {bankTransferEnabled && (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="bank-account-name">Account name</Label>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removePaymentMethod(method.id)}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
 
-                    <Input
-                      id="bank-account-name"
-                      value={bankAccountName}
-                      onChange={(event) =>
-                        setBankAccountName(event.target.value)
-                      }
-                      placeholder="Account holder name"
-                    />
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      {/* METHOD TYPE */}
+
+                      <div className="space-y-2">
+                        <Label htmlFor={`payment-type-${method.id}`}>
+                          Payment type
+                        </Label>
+
+                        <select
+                          id={`payment-type-${method.id}`}
+                          value={method.method_type}
+                          onChange={(event) =>
+                            updatePaymentMethod(
+                              method.id,
+                              "method_type",
+                              event.target.value,
+                            )
+                          }
+                          className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
+                        >
+                          <option value="phonepe">PhonePe</option>
+                          <option value="googlepay">Google Pay</option>
+                          <option value="bank_transfer">Bank Transfer</option>
+                          <option value="cash_on_delivery">
+                            Cash on Delivery
+                          </option>
+                          <option value="custom">Custom</option>
+                        </select>
+                      </div>
+
+                      {/* DISPLAY NAME */}
+
+                      <div className="space-y-2">
+                        <Label htmlFor={`payment-name-${method.id}`}>
+                          Customer-facing name
+                        </Label>
+
+                        <Input
+                          id={`payment-name-${method.id}`}
+                          value={method.display_name}
+                          onChange={(event) =>
+                            updatePaymentMethod(
+                              method.id,
+                              "display_name",
+                              event.target.value,
+                            )
+                          }
+                          placeholder="PhonePe"
+                        />
+                      </div>
+                    </div>
+
+                    {/* ENABLED */}
+
+                    <label className="mt-4 flex cursor-pointer items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={method.enabled}
+                        onChange={(event) =>
+                          updatePaymentMethod(
+                            method.id,
+                            "enabled",
+                            event.target.checked,
+                          )
+                        }
+                      />
+
+                      <span className="font-medium">
+                        Available to customers
+                      </span>
+                    </label>
+
+                    {/* OPTIONAL DETAILS */}
+
+                    <div className="mt-5 space-y-4">
+                      <p className="text-sm font-medium">
+                        Payment details{" "}
+                        <span className="font-normal text-muted-foreground">
+                          (all optional)
+                        </span>
+                      </p>
+
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        {/* ACCOUNT / ADMIN NAME */}
+
+                        <div className="space-y-2">
+                          <Label htmlFor={`payment-account-${method.id}`}>
+                            Name / account holder
+                          </Label>
+
+                          <Input
+                            id={`payment-account-${method.id}`}
+                            value={method.account_name ?? ""}
+                            onChange={(event) =>
+                              updatePaymentMethod(
+                                method.id,
+                                "account_name",
+                                event.target.value,
+                              )
+                            }
+                            placeholder="Admin name"
+                          />
+                        </div>
+
+                        {/* PHONE */}
+
+                        <div className="space-y-2">
+                          <Label htmlFor={`payment-phone-${method.id}`}>
+                            Phone number
+                          </Label>
+
+                          <Input
+                            id={`payment-phone-${method.id}`}
+                            value={method.phone_number ?? ""}
+                            onChange={(event) =>
+                              updatePaymentMethod(
+                                method.id,
+                                "phone_number",
+                                event.target.value,
+                              )
+                            }
+                            placeholder="+91 ..."
+                          />
+                        </div>
+                      </div>
+
+                      {/* PAYMENT URL */}
+
+                      <div className="space-y-2">
+                        <Label htmlFor={`payment-url-${method.id}`}>
+                          Payment URL
+                        </Label>
+
+                        <Input
+                          id={`payment-url-${method.id}`}
+                          type="url"
+                          value={method.payment_url ?? ""}
+                          onChange={(event) =>
+                            updatePaymentMethod(
+                              method.id,
+                              "payment_url",
+                              event.target.value,
+                            )
+                          }
+                          placeholder="https://..."
+                        />
+
+                        <p className="text-xs text-muted-foreground">
+                          Optional link customers can use to make the payment.
+                        </p>
+                      </div>
+
+                      {/* INSTRUCTIONS */}
+
+                      <div className="space-y-2">
+                        <Label htmlFor={`payment-instructions-${method.id}`}>
+                          Customer instructions
+                        </Label>
+
+                        <Textarea
+                          id={`payment-instructions-${method.id}`}
+                          value={method.instructions ?? ""}
+                          onChange={(event) =>
+                            updatePaymentMethod(
+                              method.id,
+                              "instructions",
+                              event.target.value,
+                            )
+                          }
+                          placeholder="Enter any instructions customers should follow..."
+                          rows={3}
+                        />
+                      </div>
+
+                      {/* QR CODE */}
+
+                      <div className="space-y-3">
+                        <Label>QR code</Label>
+
+                        <div className="flex flex-wrap items-start gap-4">
+                          {method.qr_code_url ? (
+                            <div className="relative h-40 w-40 overflow-hidden rounded-lg border bg-white">
+                              <Image
+                                src={method.qr_code_url}
+                                alt={`${method.display_name || "Payment"} QR code`}
+                                fill
+                                unoptimized
+                                className="object-contain p-2"
+                              />
+                            </div>
+                          ) : (
+                            <div className="flex h-40 w-40 items-center justify-center rounded-lg border border-dashed text-center text-xs text-muted-foreground">
+                              No QR code
+                            </div>
+                          )}
+
+                          <div className="min-w-[220px] flex-1 space-y-2">
+                            <Input
+                              id={`payment-qr-${method.id}`}
+                              type="file"
+                              accept="image/*"
+                              onChange={(event) =>
+                                uploadPaymentQrCode(event, method.id)
+                              }
+                              disabled={paymentUploading}
+                            />
+
+                            <p className="text-xs text-muted-foreground">
+                              {paymentUploading
+                                ? "Uploading QR code..."
+                                : "Optional. Upload the QR image customers should scan."}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
+                ))}
+              </div>
+            )}
 
-                  <div className="space-y-2">
-                    <Label htmlFor="bank-iban">IBAN</Label>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={addPaymentMethod}
+              className="w-full"
+            >
+              + Add payment method
+            </Button>
 
-                    <Input
-                      id="bank-iban"
-                      value={bankIban}
-                      onChange={(event) => setBankIban(event.target.value)}
-                      placeholder="CH..."
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
+            {paymentMethodsState.length === 0 && (
+              <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+                No payment methods configured yet.
+              </p>
+            )}
+
+            <p className="text-xs text-muted-foreground">
+              You can add multiple payment methods. The customer-facing name is
+              controlled by the text you enter above, so the same system can be
+              used for PhonePe, Google Pay, Bank Transfer, Cash on Delivery, or
+              any future payment method.
+            </p>
           </CardContent>
         </Card>
 
@@ -1391,12 +1857,14 @@ export function SiteSettingsForm({
                     id="shipping-method"
                     value={shippingMethod}
                     onChange={(event) => setShippingMethod(event.target.value)}
-                    placeholder="Swiss Post"
+                    placeholder="Porter"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="shipping-price">Shipping price ({CURRENCY_SYMBOL})</Label>
+                  <Label htmlFor="shipping-price">
+                    Shipping price ({CURRENCY_SYMBOL})
+                  </Label>
 
                   <Input
                     id="shipping-price"

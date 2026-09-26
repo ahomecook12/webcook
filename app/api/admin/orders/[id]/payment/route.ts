@@ -43,7 +43,9 @@ export async function PATCH(
 
   const { data: order, error: orderError } = await supabase
     .from("orders")
-    .select("id, user_id, order_number, status, payment_status")
+    .select(
+      "id, user_id, order_number, status, payment_status",
+    )
     .eq("id", id)
     .maybeSingle();
 
@@ -60,6 +62,9 @@ export async function PATCH(
       { status: 404 },
     );
   }
+
+  const paymentChanged =
+    paymentStatus !== order.payment_status;
 
   const updateData: {
     payment_status: string;
@@ -87,50 +92,119 @@ export async function PATCH(
     updateData.status = "pending_payment";
   }
 
- const { error } = await supabase
-  .from("orders")
-  .update(updateData)
-  .eq("id", id);
+  const { error } = await supabase
+    .from("orders")
+    .update(updateData)
+    .eq("id", id);
 
-if (error) {
-  return NextResponse.json(
-    { error: error.message },
-    { status: 500 },
-  );
-}
-
-/* =========================================================
-   Create customer notification
-   ========================================================= */
-
-if (
-  paymentStatus === "paid" &&
-  order.payment_status !== "paid"
-) {
-  const serviceSupabase = createServiceRoleClient();
-
-  const { error: notificationError } =
-    await serviceSupabase
-      .from("notifications")
-      .insert({
-        user_id: order.user_id,
-        type: "payment_confirmed",
-        title: "Payment confirmed",
-        message: `Your payment for order ${order.order_number} has been confirmed.`,
-        order_id: order.id,
-      });
-
-  if (notificationError) {
-    console.error(
-      "Failed to create payment notification:",
-      notificationError,
+  if (error) {
+    return NextResponse.json(
+      { error: error.message },
+      { status: 500 },
     );
   }
-}
+
+  /*
+   * Notifications are secondary.
+   * A notification failure must never undo
+   * a successful order update.
+   */
+
+  if (paymentChanged) {
+    const serviceSupabase =
+      createServiceRoleClient();
+
+    /* =======================================================
+       CUSTOMER DATABASE NOTIFICATION
+       ======================================================= */
+
+    if (paymentStatus === "paid") {
+      const {
+        error: customerNotificationError,
+      } = await serviceSupabase
+        .from("notifications")
+        .insert({
+          user_id: order.user_id,
+
+          type: "payment_confirmed",
+
+          title: "Payment confirmed",
+
+          message:
+            `Your payment for order ` +
+            `${order.order_number} has been confirmed.`,
+
+          order_id: order.id,
+        });
+
+      if (customerNotificationError) {
+        console.error(
+          "Failed to create customer payment notification:",
+          customerNotificationError,
+        );
+      }
+    }
+
+    /* =======================================================
+       FIND ALL ADMINS
+       ======================================================= */
+
+    const {
+      data: admins,
+      error: adminsError,
+    } = await serviceSupabase
+      .from("profiles")
+      .select("id")
+      .eq("role", "admin");
+
+    if (adminsError) {
+      console.error(
+        "Failed to find admins for payment notification:",
+        adminsError,
+      );
+    } else if (admins && admins.length > 0) {
+      /* =====================================================
+         ADMIN DATABASE NOTIFICATION
+         ===================================================== */
+
+      const adminNotifications = admins.map(
+        (admin) => ({
+          user_id: admin.id,
+
+          type: "admin_order_updated",
+
+          title: "Order payment updated",
+
+          message:
+            paymentStatus === "paid"
+              ? `Payment for order ${order.order_number} has been marked as paid.`
+              : `Payment for order ${order.order_number} has been marked as pending.`,
+
+          order_id: order.id,
+        }),
+      );
+
+      const {
+        error: adminNotificationError,
+      } = await serviceSupabase
+        .from("notifications")
+        .insert(adminNotifications);
+
+      if (adminNotificationError) {
+        console.error(
+          "Failed to create admin payment notification:",
+          adminNotificationError,
+        );
+      }
+    }
+  }
 
   return NextResponse.json({
     success: true,
+
     payment_status: paymentStatus,
-    order_status: updateData.status ?? order.status,
+
+    order_status:
+      updateData.status ?? order.status,
   });
 }

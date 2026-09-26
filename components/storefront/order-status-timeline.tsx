@@ -1,5 +1,6 @@
 "use client";
 
+import { STORE_LOCALE } from "@/app/constants";
 import {
   Dialog,
   DialogContent,
@@ -43,7 +44,7 @@ const steps = [
 function formatDate(value: string | null) {
   if (!value) return null;
 
-  return new Date(value).toLocaleString("en-CH", {
+  return new Date(value).toLocaleString(STORE_LOCALE, {
     dateStyle: "medium",
     timeStyle: "short",
   });

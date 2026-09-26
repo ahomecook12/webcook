@@ -1,82 +1,20 @@
-
 import { NextResponse } from "next/server";
+
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { sendPushNotification } from "@/lib/notifications/sendPushNotification";
-
-/* =========================================================
-   EXPO PUSH NOTIFICATION
-   ========================================================= */
-
-async function sendExpoPushNotification({
-  token,
-  title,
-  body,
-  data = {},
-}: {
-  token: string;
-  title: string;
-  body: string;
-  data?: Record<string, string>;
-}) {
-  try {
-    const response = await fetch(
-      "https://exp.host/--/api/v2/push/send",
-      {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Accept-encoding": "gzip, deflate",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          to: token,
-          sound: "default",
-          title,
-          body,
-          data,
-          channelId: "default",
-        }),
-      },
-    );
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      console.error(
-        "❌ Expo push notification failed:",
-        result,
-      );
-
-      return null;
-    }
-
-   // console.log(      "✅ Expo push notification sent:",      result,    );
-
-    return result;
-  } catch (error) {
-    console.error(
-      "❌ Expo push notification error:",
-      error,
-    );
-
-    return null;
-  }
-}
+import { sendAdminOrderNotification } from "@/lib/notifications/sendAdminOrderNotification";
 
 /* =========================================================
    POST — Create order
    ========================================================= */
 
 export async function POST(request: Request) {
- 
   try {
     const authHeader = request.headers.get("authorization");
 
-    const accessToken =
-      authHeader?.startsWith("Bearer ")
-        ? authHeader.slice(7)
-        : undefined;
+    const accessToken = authHeader?.startsWith("Bearer ")
+      ? authHeader.slice(7)
+      : undefined;
 
     const supabase = await createClient(accessToken);
 
@@ -111,6 +49,16 @@ export async function POST(request: Request) {
       postal_code,
       country,
       payment_method,
+      preferred_fulfillment_at,
+
+      /*
+       * Delivery uses the existing orders columns:
+       *
+       * porter_status
+       * porter_details
+       */
+      porter_status,
+      porter_details,
     } = body;
 
     /* =====================================================
@@ -134,32 +82,122 @@ export async function POST(request: Request) {
     }
 
     /* =====================================================
-       Payment method validation
+       Delivery service validation
        ===================================================== */
 
     if (
-      !["twint", "bank_transfer"].includes(
-        payment_method,
-      )
+      porter_status !== "booked" &&
+      porter_status !== "requested"
     ) {
       return NextResponse.json(
         {
-          error: "Please select a valid payment method.",
+          error:
+            "Please select how the delivery service should be arranged.",
+        },
+        { status: 400 },
+      );
+    }
+
+    /*
+     * If the customer chooses to book the delivery
+     * service themselves, details are required.
+     */
+    if (
+      porter_status === "booked" &&
+      !porter_details?.trim()
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            'Please enter the delivery service details, or select "Request admin to book the delivery service".',
+        },
+        { status: 400 },
+      );
+    }
+
+    /*
+     * If admin is requested to book it,
+     * blank details are allowed.
+     */
+    const finalPorterDetails =
+      porter_details?.trim() || null;
+
+    /* =====================================================
+       Payment method validation
+       ===================================================== */
+
+    if (!payment_method?.trim()) {
+      return NextResponse.json(
+        {
+          error: "Please select a payment method.",
         },
         { status: 400 },
       );
     }
 
     /* =====================================================
+       Get selected payment method
+       ===================================================== */
+
+    const {
+      data: selectedPaymentMethod,
+      error: paymentMethodError,
+    } = await supabase
+      .from("payment_methods")
+      .select(
+        `
+          id,
+          method_type,
+          display_name,
+          enabled,
+          account_name,
+          phone_number,
+          payment_url,
+          instructions,
+          qr_code_url
+        `,
+      )
+      .eq("id", payment_method)
+      .eq("enabled", true)
+      .maybeSingle();
+
+    if (paymentMethodError) {
+      throw paymentMethodError;
+    }
+
+    if (!selectedPaymentMethod) {
+      return NextResponse.json(
+        {
+          error:
+            "The selected payment method is currently unavailable.",
+        },
+        { status: 400 },
+      );
+    }
+
+    const paymentMethodSnapshot = {
+      id: selectedPaymentMethod.id,
+      method_type: selectedPaymentMethod.method_type,
+      display_name: selectedPaymentMethod.display_name,
+      account_name: selectedPaymentMethod.account_name,
+      phone_number: selectedPaymentMethod.phone_number,
+      payment_url: selectedPaymentMethod.payment_url,
+      instructions: selectedPaymentMethod.instructions,
+      qr_code_url: selectedPaymentMethod.qr_code_url,
+    };
+
+    /* =====================================================
        Find user's cart
        ===================================================== */
 
-    const { data: cart, error: cartError } =
-      await supabase
-        .from("carts")
-        .select("id")
-        .eq("user_id", user.id)
-        .maybeSingle();
+    const {
+      data: cart,
+      error: cartError,
+    } = await supabase
+      .from("carts")
+      .select("id")
+      .eq("user_id", user.id)
+      .maybeSingle();
 
     if (cartError) {
       throw cartError;
@@ -216,8 +254,9 @@ export async function POST(request: Request) {
 
     const items = (cartItems ?? []).map((item) => ({
       ...item,
+
       product: Array.isArray(item.product)
-        ? (item.product[0] ?? null)
+        ? item.product[0] ?? null
         : item.product,
     }));
 
@@ -250,7 +289,8 @@ export async function POST(request: Request) {
       if (!product.active) {
         return NextResponse.json(
           {
-            error: `${product.name} is no longer available.`,
+            error:
+              `${product.name} is no longer available.`,
           },
           { status: 400 },
         );
@@ -273,7 +313,8 @@ export async function POST(request: Request) {
       if (!canOrder) {
         return NextResponse.json(
           {
-            error: `${product.name} is currently unavailable.`,
+            error:
+              `${product.name} is currently unavailable.`,
           },
           { status: 400 },
         );
@@ -285,7 +326,8 @@ export async function POST(request: Request) {
       ) {
         return NextResponse.json(
           {
-            error: `Not enough stock available for ${product.name}.`,
+            error:
+              `Not enough stock available for ${product.name}.`,
           },
           { status: 400 },
         );
@@ -328,44 +370,13 @@ export async function POST(request: Request) {
           shipping_enabled,
           shipping_method,
           shipping_price,
-          free_shipping,
-          twint_enabled,
-          bank_transfer_enabled
+          free_shipping
         `,
       )
       .maybeSingle();
 
     if (settingsError) {
       throw settingsError;
-    }
-
-    /* =====================================================
-       Validate payment method availability
-       ===================================================== */
-
-    if (
-      payment_method === "twint" &&
-      !storefrontSettings?.twint_enabled
-    ) {
-      return NextResponse.json(
-        {
-          error: "TWINT is currently unavailable.",
-        },
-        { status: 400 },
-      );
-    }
-
-    if (
-      payment_method === "bank_transfer" &&
-      !storefrontSettings?.bank_transfer_enabled
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "Bank transfer is currently unavailable.",
-        },
-        { status: 400 },
-      );
     }
 
     /* =====================================================
@@ -385,7 +396,8 @@ export async function POST(request: Request) {
        Calculate final total
        ===================================================== */
 
-    const total = subtotal + shippingCost;
+    const total =
+      subtotal + shippingCost;
 
     /* =====================================================
        Create order
@@ -403,6 +415,12 @@ export async function POST(request: Request) {
 
         payment_method,
 
+        payment_method_id:
+          selectedPaymentMethod.id,
+
+        payment_method_snapshot:
+          paymentMethodSnapshot,
+
         payment_status: "pending",
 
         subtotal,
@@ -411,18 +429,35 @@ export async function POST(request: Request) {
 
         total,
 
-        shipping_name: full_name.trim(),
+        shipping_name:
+          full_name.trim(),
 
-        shipping_phone: phone.trim(),
+        shipping_phone:
+          phone.trim(),
 
-        shipping_address: address.trim(),
+        shipping_address:
+          address.trim(),
 
-        shipping_city: city.trim(),
+        shipping_city:
+          city.trim(),
 
         shipping_postal_code:
           postal_code.trim(),
 
-        shipping_country: country.trim(),
+        shipping_country:
+          country.trim(),
+preferred_fulfillment_at:
+  preferred_fulfillment_at || null,
+        /*
+         * Existing database fields.
+         *
+         * booked   = customer will book
+         * requested = admin will book
+         */
+        porter_status,
+
+        porter_details:
+          finalPorterDetails,
       })
       .select("id, order_number")
       .single();
@@ -447,11 +482,14 @@ export async function POST(request: Request) {
 
         product_id: product.id,
 
-        product_name: product.name,
+        product_name:
+          product.name,
 
-        quantity: item.quantity,
+        quantity:
+          item.quantity,
 
-        unit_price: Number(unitPrice),
+        unit_price:
+          Number(unitPrice),
 
         total_price:
           Number(unitPrice) *
@@ -460,13 +498,17 @@ export async function POST(request: Request) {
         weight_grams:
           product.weight_grams,
 
-        size: product.size,
+        size:
+          product.size,
 
-        height: product.height,
+        height:
+          product.height,
 
-        width: product.width,
+        width:
+          product.width,
 
-        depth: product.depth,
+        depth:
+          product.depth,
       };
     });
 
@@ -484,26 +526,33 @@ export async function POST(request: Request) {
        Update user's profile
        ===================================================== */
 
-    const { error: profileError } =
-      await supabase
-        .from("profiles")
-        .update({
-          full_name: full_name.trim(),
+    const {
+      error: profileError,
+    } = await supabase
+      .from("profiles")
+      .update({
+        full_name:
+          full_name.trim(),
 
-          phone: phone.trim(),
+        phone:
+          phone.trim(),
 
-          address: address.trim(),
+        address:
+          address.trim(),
 
-          city: city.trim(),
+        city:
+          city.trim(),
 
-          postal_code: postal_code.trim(),
+        postal_code:
+          postal_code.trim(),
 
-          country: country.trim(),
+        country:
+          country.trim(),
 
-          updated_at:
-            new Date().toISOString(),
-        })
-        .eq("id", user.id);
+        updated_at:
+          new Date().toISOString(),
+      })
+      .eq("id", user.id);
 
     if (profileError) {
       throw profileError;
@@ -524,33 +573,74 @@ export async function POST(request: Request) {
       throw clearCartError;
     }
 
-    /* =========================================================
+    /* =====================================================
        NOTIFICATIONS
-       ========================================================= */
+       ===================================================== */
 
     const serviceSupabase =
       createServiceRoleClient();
 
-    /* =========================================================
-       1. CUSTOMER DATABASE NOTIFICATION
-       ========================================================= */
+    /* =====================================================
+       Create initial payment history
+       ===================================================== */
 
     const {
-      error: customerNotificationError,
+      error: paymentHistoryError,
+    } = await serviceSupabase
+      .from("order_payment_history")
+      .insert({
+        order_id:
+          order.id,
+
+        payment_method_id:
+          selectedPaymentMethod.id,
+
+        payment_method_name:
+          selectedPaymentMethod.display_name,
+
+        payment_details:
+          paymentMethodSnapshot,
+
+        event_type:
+          "payment_method_selected",
+
+        changed_by:
+          user.id,
+
+        changed_by_type:
+          "customer",
+      });
+
+    if (paymentHistoryError) {
+      console.error(
+        "Failed to create payment history:",
+        paymentHistoryError,
+      );
+    }
+
+    /* =====================================================
+       CUSTOMER DATABASE NOTIFICATION
+       ===================================================== */
+
+    const {
+      error:
+        customerNotificationError,
     } = await serviceSupabase
       .from("notifications")
       .insert({
         user_id: user.id,
 
-        type: "order_placed",
+        type:
+          "order_placed",
 
-        title: "Order placed",
+        title:
+          "Order placed",
 
         message:
-          `Your order ${order.order_number} ` +
-          `has been placed successfully.`,
+          `Your order ${order.order_number} has been placed successfully.`,
 
-        order_id: order.id,
+        order_id:
+          order.id,
       });
 
     if (customerNotificationError) {
@@ -560,9 +650,9 @@ export async function POST(request: Request) {
       );
     }
 
-    /* =========================================================
-       2. FIND ALL ADMINS
-       ========================================================= */
+    /* =====================================================
+       FIND ALL ADMINS
+       ===================================================== */
 
     const {
       data: admins,
@@ -581,163 +671,57 @@ export async function POST(request: Request) {
       admins &&
       admins.length > 0
     ) {
-      /* =======================================================
+      /* ===================================================
          Create admin database notifications
-         ======================================================= */
+         =================================================== */
 
       const adminNotifications =
         admins.map((admin) => ({
-          user_id: admin.id,
+          user_id:
+            admin.id,
 
-          type: "admin_order_placed",
+          type:
+            "admin_order_placed",
 
-          title: "New order received",
+          title:
+            "New order received",
 
           message:
-            `A new order ${order.order_number} ` +
-            `has been placed.`,
+            `A new order ${order.order_number} has been placed.`,
 
-          order_id: order.id,
+          order_id:
+            order.id,
         }));
 
       const {
-        error: adminNotificationError,
+        error:
+          adminNotificationError,
       } = await serviceSupabase
         .from("notifications")
-        .insert(
-          adminNotifications,
-        );
+        .insert(adminNotifications);
 
       if (adminNotificationError) {
         console.error(
-          "Failed to create admin order notification:",
+          "Failed to create admin order notifications:",
           adminNotificationError,
         );
       }
-
-      /* =======================================================
-         3. PUSH NOTIFICATIONS
-
-         Send to every admin device:
-
-         - Android app → Expo push token
-         - Web browser → Firebase web push token
-         ======================================================= */
-
-      const adminIds =
-        admins.map(
-          (admin) => admin.id,
-        );
-
-      const {
-        data: pushTokens,
-        error: pushTokensError,
-      } = await serviceSupabase
-        .from("push_tokens")
-        .select(
-          `
-            user_id,
-            expo_push_token,
-            web_push_token,
-            platform
-          `,
-        )
-        .in("user_id", adminIds);
-
-       
-
-      if (pushTokensError) {
-        console.error(
-          "Failed to find admin push tokens:",
-          pushTokensError,
-        );
-      } else if (
-        pushTokens &&
-        pushTokens.length > 0
-      ) {
-        /* =====================================================
-           Send push notification to every registered device
-           ===================================================== */
-
-        const pushPromises =
-          pushTokens.map(async (pushToken) => {
-            const pushData = {
-              type: "admin_order",
-              order_id: order.id,
-            };
-
-            /* =================================================
-               ANDROID / EXPO
-               ================================================= */
-
-            if (
-              pushToken.expo_push_token
-            ) {
-              await sendExpoPushNotification({
-                token:
-                  pushToken.expo_push_token,
-
-                title:
-                  "New order received",
-
-                body:
-                  `Order ${order.order_number} ` +
-                  `has been placed.`,
-
-                data: pushData,
-              });
-            }
-
-            /* =================================================
-               WEB / FIREBASE
-               ================================================= */
-
-            if (
-              pushToken.web_push_token
-            ) {
-              await sendPushNotification({
-                token:
-                  pushToken.web_push_token,
-
-                title:
-                  "New order received",
-
-                body:
-                  `Order ${order.order_number} ` +
-                  `has been placed.`,
-
-                data: pushData,
-              });
-            }
-          });
-
-        /*
-         * Push notifications are secondary.
-         *
-         * We deliberately do NOT let a push failure
-         * make the order creation fail.
-         */
-
-        const pushResults =
-          await Promise.allSettled(
-            pushPromises,
-          );
-
-        pushResults.forEach(
-          (result) => {
-            if (
-              result.status ===
-              "rejected"
-            ) {
-              console.error(
-                "Push notification failed:",
-                result.reason,
-              );
-            }
-          },
-        );
-      }
     }
+
+    /* =====================================================
+       ADMIN PUSH NOTIFICATION
+       ===================================================== */
+
+    await sendAdminOrderNotification({
+      orderId:
+        order.id,
+
+      title:
+        "New order received",
+
+      body:
+        `Order ${order.order_number} has been placed.`,
+    });
 
     /* =====================================================
        SUCCESS
@@ -746,7 +730,8 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
 
-      order_id: order.id,
+      order_id:
+        order.id,
 
       order_number:
         order.order_number,

@@ -91,30 +91,30 @@ export default async function Home() {
       .maybeSingle(),
   ]);
 
-  let isAdmin = false;
-  let cartCount = 0;
+  // let isAdmin = false;
+  // let cartCount = 0;
 
-  if (user) {
-    const [{ data: profile }, { data: cart }] = await Promise.all([
-      supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
+  // if (user) {
+  //   const [{ data: profile }, { data: cart }] = await Promise.all([
+  //     supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
 
-      supabase.from("carts").select("id").eq("user_id", user.id).maybeSingle(),
-    ]);
+  //     supabase.from("carts").select("id").eq("user_id", user.id).maybeSingle(),
+  //   ]);
 
-    isAdmin = profile?.role === "admin";
+  //   isAdmin = profile?.role === "admin";
 
-    if (cart) {
-      const { data: cartItems } = await supabase
-        .from("cart_items")
-        .select("quantity")
-        .eq("cart_id", cart.id);
+  //   if (cart) {
+  //     const { data: cartItems } = await supabase
+  //       .from("cart_items")
+  //       .select("quantity")
+  //       .eq("cart_id", cart.id);
 
-      cartCount = (cartItems ?? []).reduce(
-        (total, item) => total + item.quantity,
-        0,
-      );
-    }
-  }
+  //     cartCount = (cartItems ?? []).reduce(
+  //       (total, item) => total + item.quantity,
+  //       0,
+  //     );
+ //   }
+  //}
 
   const settings = {
     ...defaultSettings,
@@ -334,7 +334,7 @@ export default async function Home() {
                 </p>
 
                 <p className="mt-3 text-2xl font-semibold">
-                  Beauty, tradition & taste
+                  Home-Made, Hygenic, Pure & Delicious
                 </p>
               </CardContent>
             </Card>
@@ -342,10 +342,10 @@ export default async function Home() {
 
           <div className="max-w-2xl self-center">
             <p className="mb-4 text-sm font-medium tracking-[0.16em] text-primary">
-              CURATED WITH LOVE
+              MADE WITH LOVE • TRADITION • PURE INGREDIENTS
             </p>
 
-            <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
+            <h1 className="text-4xl italic font-semibold tracking-tight sm:text-5xl">
               {settings.hero_title}
             </h1>
 
@@ -357,7 +357,7 @@ export default async function Home() {
               href="/products"
               className={`${buttonVariants({ size: "lg" })} mt-8`}
             >
-              Explore our amazing collection &rarr;
+              Explore Our Homemade Favourites &rarr;
             </Link>
           </div>
         </div>

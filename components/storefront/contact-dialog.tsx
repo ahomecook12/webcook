@@ -31,7 +31,7 @@ export function ContactDialog() {
     setSending(true);
 
     try {
-      console.log("🔥 CONTACT FORM SUBMITTING");
+      //console.log("🔥 CONTACT FORM SUBMITTING");
       const response = await fetch("/api/contact", {
         method: "POST",
         headers: {
@@ -44,14 +44,14 @@ export function ContactDialog() {
           message: message.trim(),
         }),
       });
-      console.log("🔥 CONTACT API RESPONSE:", response.status);
+     // console.log("🔥 CONTACT API RESPONSE:", response.status);
       const data = await response.json();
 
       if (!response.ok) {
         throw new Error(data?.error || "Could not send your message.");
       }
 
-      console.log("Contact email sent successfully:", data);
+     // console.log("Contact email sent successfully:", data);
 
       setSent(true);
 

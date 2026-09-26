@@ -140,7 +140,7 @@ export function HeroCarousel({ media }: { media: HeroMedia[] }) {
     item.type === "youtube" ? getYouTubeThumbnail(item.url) : null;
 
   return (
-    <div className="relative aspect-[5/6] overflow-hidden rounded-xl bg-muted shadow-lg">
+    <div className="relative aspect-[4/6] overflow-hidden rounded-xl bg-muted shadow-lg">
       {item.type === "image" ? (
         <Image
           key={item.url}

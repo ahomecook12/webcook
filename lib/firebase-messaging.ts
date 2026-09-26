@@ -97,7 +97,7 @@ onMessage(messaging, (payload) => {
   if (Notification.permission === "granted") {
     const notification = new Notification(title, {
       body,
-      icon: "/lcc.svg",
+      icon: "/ak.svg",
       data: payload.data ?? {},
     });
 

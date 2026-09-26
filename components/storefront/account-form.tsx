@@ -38,7 +38,7 @@ export default function AccountForm({
     profile?.postal_code ?? "",
   );
   const [country, setCountry] = useState(
-    profile?.country ?? "Switzerland",
+    profile?.country ?? "India",
   );
 
   const [error, setError] = useState("");
@@ -176,7 +176,7 @@ export default function AccountForm({
             id="country"
             value={country}
             onChange={(event) => setCountry(event.target.value)}
-            placeholder="Switzerland"
+            placeholder=""
             required
           />
         </div>

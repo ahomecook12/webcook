@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Bell } from "lucide-react";
 import AddToCalendarDialog from "@/components/notifications/add-to-calendar-dialog";
 import { createClient } from "@/lib/supabase/server";
+import { STORE_LOCALE } from "../constants";
 
 type Notification = {
   id: string;
@@ -232,7 +233,7 @@ export default async function NotificationsPage() {
                     <p className="mt-2 text-xs text-muted-foreground">
                       {new Date(
                         notification.created_at,
-                      ).toLocaleString("en-CH", {
+                      ).toLocaleString(STORE_LOCALE, {
                         day: "numeric",
                         month: "short",
                         year: "numeric",

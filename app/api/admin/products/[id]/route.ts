@@ -82,11 +82,9 @@ export async function DELETE(
     if (!publicId) continue;
 
     try {
-      const result = await cloudinary.uploader.destroy(publicId, {
+      await cloudinary.uploader.destroy(publicId, {
         resource_type: "image",
       });
-
-    //  console.log(        `Cloudinary delete ${publicId}:`,        result.result,      );
     } catch (error) {
       // Do not prevent product deletion if Cloudinary cleanup fails
       console.error(
