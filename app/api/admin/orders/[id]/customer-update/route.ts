@@ -54,11 +54,7 @@ function normalizeValue(value: unknown): string | null {
 /*
  * Normal string comparison.
  */
-function valuesEqual(
-  field: string,
-  oldValue: unknown,
-  newValue: unknown,
-) {
+function valuesEqual(field: string, oldValue: unknown, newValue: unknown) {
   if (field === "preferred_fulfillment_at") {
     if (
       oldValue === null ||
@@ -66,30 +62,19 @@ function valuesEqual(
       newValue === null ||
       newValue === undefined
     ) {
-      return (
-        (oldValue ?? null) ===
-        (newValue ?? null)
-      );
+      return (oldValue ?? null) === (newValue ?? null);
     }
 
-    const oldTime =
-      new Date(String(oldValue)).getTime();
+    const oldTime = new Date(String(oldValue)).getTime();
 
-    const newTime =
-      new Date(String(newValue)).getTime();
+    const newTime = new Date(String(newValue)).getTime();
 
-    if (
-      !Number.isNaN(oldTime) &&
-      !Number.isNaN(newTime)
-    ) {
+    if (!Number.isNaN(oldTime) && !Number.isNaN(newTime)) {
       return oldTime === newTime;
     }
   }
 
-  return (
-    (oldValue ?? null) ===
-    (newValue ?? null)
-  );
+  return (oldValue ?? null) === (newValue ?? null);
 }
 
 /*
@@ -113,9 +98,7 @@ function valuesEqual(
  * These represent the same minute from the UI's point of
  * view, so they must NOT be treated as an admin change.
  */
-function normalizeFulfillmentForComparison(
-  value: unknown,
-): number | null {
+function normalizeFulfillmentForComparison(value: unknown): number | null {
   if (value === undefined || value === null) {
     return null;
   }
@@ -141,24 +124,14 @@ function normalizeFulfillmentForComparison(
   return date.getTime();
 }
 
-function fulfillmentValuesEqual(
-  oldValue: unknown,
-  newValue: unknown,
-) {
+function fulfillmentValuesEqual(oldValue: unknown, newValue: unknown) {
   return (
-    normalizeFulfillmentForComparison(
-      oldValue,
-    ) ===
-    normalizeFulfillmentForComparison(
-      newValue,
-    )
+    normalizeFulfillmentForComparison(oldValue) ===
+    normalizeFulfillmentForComparison(newValue)
   );
 }
 
-function formatValue(
-  field: string,
-  value: string | null,
-) {
+function formatValue(field: string, value: string | null) {
   if (!value) {
     return "Not specified";
   }
@@ -186,22 +159,31 @@ function formatValue(
   return value;
 }
 
-export async function PATCH(
-  request: Request,
-  { params }: RouteProps,
-) {
+export async function PATCH(request: Request, { params }: RouteProps) {
   try {
     /* =====================================================
-       ADMIN AUTHENTICATION
-    ===================================================== */
+   ADMIN AUTHENTICATION
 
-    const { isAdmin, user } = await requireAdmin();
+   Web:
+   - Uses the normal Supabase cookie session.
+
+   Mobile:
+   - Sends the Supabase access token through
+     Authorization: Bearer <token>.
+===================================================== */
+
+    const authHeader = request.headers.get("authorization");
+
+    const accessToken = authHeader?.startsWith("Bearer ")
+      ? authHeader.slice(7)
+      : undefined;
+
+    const { isAdmin, user } = await requireAdmin(accessToken);
 
     if (!isAdmin || !user) {
       return NextResponse.json(
         {
-          error:
-            "You must be an admin to update the order.",
+          error: "You must be an admin to update the order.",
         },
         { status: 403 },
       );
@@ -213,49 +195,38 @@ export async function PATCH(
        READ REQUEST BODY
     ===================================================== */
 
-    const body =
-      (await request.json()) as CustomerUpdateBody;
+    const body = (await request.json()) as CustomerUpdateBody;
 
     /* =====================================================
        NORMALIZE VALUES
     ===================================================== */
 
-    const shippingName =
-      normalizeValue(body.shipping_name);
+    const shippingName = normalizeValue(body.shipping_name);
 
-    const shippingPhone =
-      normalizeValue(body.shipping_phone);
+    const shippingPhone = normalizeValue(body.shipping_phone);
 
-    const shippingAddress =
-      normalizeValue(body.shipping_address);
+    const shippingAddress = normalizeValue(body.shipping_address);
 
-    const shippingCity =
-      normalizeValue(body.shipping_city);
+    const shippingCity = normalizeValue(body.shipping_city);
 
-    const shippingPostalCode =
-      normalizeValue(body.shipping_postal_code);
+    const shippingPostalCode = normalizeValue(body.shipping_postal_code);
 
-    const shippingCountry =
-      normalizeValue(body.shipping_country);
+    const shippingCountry = normalizeValue(body.shipping_country);
 
-    const customerNote =
-      normalizeValue(body.customer_note);
+    const customerNote = normalizeValue(body.customer_note);
 
-    const requestedPreferredFulfillmentAt =
-      normalizeValue(
-        body.preferred_fulfillment_at,
-      );
+    const requestedPreferredFulfillmentAt = normalizeValue(
+      body.preferred_fulfillment_at,
+    );
 
-    const paymentMethodId =
-      normalizeValue(body.payment_method);
+    const paymentMethodId = normalizeValue(body.payment_method);
 
     const porterStatus =
       normalizeValue(body.porter_status) ??
       normalizeValue(body.delivery_service_mode) ??
       "not_requested";
 
-    const porterDetails =
-      normalizeValue(body.porter_details);
+    const porterDetails = normalizeValue(body.porter_details);
 
     /* =====================================================
        VALIDATE SHIPPING INFORMATION
@@ -271,8 +242,7 @@ export async function PATCH(
     ) {
       return NextResponse.json(
         {
-          error:
-            "Please complete the shipping address.",
+          error: "Please complete the shipping address.",
         },
         { status: 400 },
       );
@@ -284,23 +254,18 @@ export async function PATCH(
 
     if (
       !VALID_DELIVERY_STATUSES.includes(
-        porterStatus as
-          (typeof VALID_DELIVERY_STATUSES)[number],
+        porterStatus as (typeof VALID_DELIVERY_STATUSES)[number],
       )
     ) {
       return NextResponse.json(
         {
-          error:
-            "Invalid delivery service status.",
+          error: "Invalid delivery service status.",
         },
         { status: 400 },
       );
     }
 
-    if (
-      porterStatus === "requested" &&
-      !porterDetails
-    ) {
+    if (porterStatus === "requested" && !porterDetails) {
       return NextResponse.json(
         {
           error:
@@ -314,17 +279,13 @@ export async function PATCH(
        SERVICE ROLE CLIENT
     ===================================================== */
 
-    const supabase =
-      createServiceRoleClient();
+    const supabase = createServiceRoleClient();
 
     /* =====================================================
        LOAD CURRENT ORDER
     ===================================================== */
 
-    const {
-      data: order,
-      error: orderError,
-    } = await supabase
+    const { data: order, error: orderError } = await supabase
       .from("orders")
       .select(
         `
@@ -358,10 +319,7 @@ export async function PATCH(
       .maybeSingle();
 
     if (orderError) {
-      console.error(
-        "Failed to load order for admin update:",
-        orderError,
-      );
+      console.error("Failed to load order for admin update:", orderError);
 
       return NextResponse.json(
         {
@@ -388,15 +346,12 @@ export async function PATCH(
      * Validate the submitted date if one was supplied.
      */
     if (requestedPreferredFulfillmentAt) {
-      const date = new Date(
-        requestedPreferredFulfillmentAt,
-      );
+      const date = new Date(requestedPreferredFulfillmentAt);
 
       if (Number.isNaN(date.getTime())) {
         return NextResponse.json(
           {
-            error:
-              "Invalid preferred fulfillment date.",
+            error: "Invalid preferred fulfillment date.",
           },
           { status: 400 },
         );
@@ -415,32 +370,25 @@ export async function PATCH(
      *
      * from being treated as an actual admin change.
      */
-    const fulfillmentChanged =
-      !fulfillmentValuesEqual(
-        order.preferred_fulfillment_at,
-        requestedPreferredFulfillmentAt,
-      );
+    const fulfillmentChanged = !fulfillmentValuesEqual(
+      order.preferred_fulfillment_at,
+      requestedPreferredFulfillmentAt,
+    );
 
-    const preferredFulfillmentAt =
-      fulfillmentChanged
-        ? requestedPreferredFulfillmentAt
-        : order.preferred_fulfillment_at;
+    const preferredFulfillmentAt = fulfillmentChanged
+      ? requestedPreferredFulfillmentAt
+      : order.preferred_fulfillment_at;
 
     /* =====================================================
        PAYMENT METHOD
     ===================================================== */
 
-    let paymentMethodName =
-      order.payment_method;
+    let paymentMethodName = order.payment_method;
 
-    let paymentMethodSnapshot =
-      order.payment_method_snapshot;
+    let paymentMethodSnapshot = order.payment_method_snapshot;
 
     if (paymentMethodId) {
-      const {
-        data: paymentMethod,
-        error: paymentMethodError,
-      } = await supabase
+      const { data: paymentMethod, error: paymentMethodError } = await supabase
         .from("payment_methods")
         .select(
           `
@@ -465,8 +413,7 @@ export async function PATCH(
 
         return NextResponse.json(
           {
-            error:
-              paymentMethodError.message,
+            error: paymentMethodError.message,
           },
           { status: 500 },
         );
@@ -475,21 +422,18 @@ export async function PATCH(
       if (!paymentMethod) {
         return NextResponse.json(
           {
-            error:
-              "The selected payment method could not be found.",
+            error: "The selected payment method could not be found.",
           },
           { status: 400 },
         );
       }
 
-      paymentMethodName =
-        paymentMethod.display_name;
+      paymentMethodName = paymentMethod.display_name;
 
       /*
        * Keep a fresh snapshot on the order.
        */
-      paymentMethodSnapshot =
-        paymentMethod;
+      paymentMethodSnapshot = paymentMethod;
     } else {
       paymentMethodName = null;
       paymentMethodSnapshot = null;
@@ -499,90 +443,60 @@ export async function PATCH(
        BUILD OLD VALUES
     ===================================================== */
 
-    const oldValues: Record<
-      string,
-      unknown
-    > = {
-      shipping_name:
-        order.shipping_name,
+    const oldValues: Record<string, unknown> = {
+      shipping_name: order.shipping_name,
 
-      shipping_phone:
-        order.shipping_phone,
+      shipping_phone: order.shipping_phone,
 
-      shipping_address:
-        order.shipping_address,
+      shipping_address: order.shipping_address,
 
-      shipping_city:
-        order.shipping_city,
+      shipping_city: order.shipping_city,
 
-      shipping_postal_code:
-        order.shipping_postal_code,
+      shipping_postal_code: order.shipping_postal_code,
 
-      shipping_country:
-        order.shipping_country,
+      shipping_country: order.shipping_country,
 
-      customer_note:
-        order.customer_note,
+      customer_note: order.customer_note,
 
-      payment_method:
-        order.payment_method,
+      payment_method: order.payment_method,
 
-      payment_method_id:
-        order.payment_method_id,
+      payment_method_id: order.payment_method_id,
 
-      preferred_fulfillment_at:
-        order.preferred_fulfillment_at,
+      preferred_fulfillment_at: order.preferred_fulfillment_at,
 
-      porter_status:
-        order.porter_status,
+      porter_status: order.porter_status,
 
-      porter_details:
-        order.porter_details,
+      porter_details: order.porter_details,
     };
 
     /* =====================================================
        BUILD NEW VALUES
     ===================================================== */
 
-    const newValues: Record<
-      string,
-      unknown
-    > = {
-      shipping_name:
-        shippingName,
+    const newValues: Record<string, unknown> = {
+      shipping_name: shippingName,
 
-      shipping_phone:
-        shippingPhone,
+      shipping_phone: shippingPhone,
 
-      shipping_address:
-        shippingAddress,
+      shipping_address: shippingAddress,
 
-      shipping_city:
-        shippingCity,
+      shipping_city: shippingCity,
 
-      shipping_postal_code:
-        shippingPostalCode,
+      shipping_postal_code: shippingPostalCode,
 
-      shipping_country:
-        shippingCountry,
+      shipping_country: shippingCountry,
 
-      customer_note:
-        customerNote,
+      customer_note: customerNote,
 
-      payment_method:
-        paymentMethodName,
+      payment_method: paymentMethodName,
 
-      payment_method_id:
-        paymentMethodId,
+      payment_method_id: paymentMethodId,
 
-      preferred_fulfillment_at:
-        preferredFulfillmentAt,
+      preferred_fulfillment_at: preferredFulfillmentAt,
 
-      porter_status:
-        porterStatus,
+      porter_status: porterStatus,
 
-      porter_details:
-        porterDetails,
+      porter_details: porterDetails,
     };
 
     /* =====================================================
@@ -591,48 +505,30 @@ export async function PATCH(
 
     const changedFields: string[] = [];
 
-    const oldChangedValues: Record<
-      string,
-      unknown
-    > = {};
+    const oldChangedValues: Record<string, unknown> = {};
 
-    const newChangedValues: Record<
-      string,
-      unknown
-    > = {};
+    const newChangedValues: Record<string, unknown> = {};
 
     for (const field of Object.keys(newValues)) {
-      const oldValue =
-        oldValues[field] ?? null;
+      const oldValue = oldValues[field] ?? null;
 
-      const newValue =
-        newValues[field] ?? null;
+      const newValue = newValues[field] ?? null;
 
       /*
        * Fulfillment date gets special comparison because
        * datetime-local cannot preserve seconds/milliseconds.
        */
       const changed =
-        field ===
-        "preferred_fulfillment_at"
-          ? !fulfillmentValuesEqual(
-              oldValue,
-              newValue,
-            )
-          : !valuesEqual(
-              field,
-              oldValue,
-              newValue,
-            );
+        field === "preferred_fulfillment_at"
+          ? !fulfillmentValuesEqual(oldValue, newValue)
+          : !valuesEqual(field, oldValue, newValue);
 
       if (changed) {
         changedFields.push(field);
 
-        oldChangedValues[field] =
-          oldValue;
+        oldChangedValues[field] = oldValue;
 
-        newChangedValues[field] =
-          newValue;
+        newChangedValues[field] = newValue;
       }
     }
 
@@ -652,40 +548,28 @@ export async function PATCH(
        UPDATE ORDER
     ===================================================== */
 
-    const {
-      error: updateError,
-    } = await supabase
+    const { error: updateError } = await supabase
       .from("orders")
       .update({
-        shipping_name:
-          shippingName,
+        shipping_name: shippingName,
 
-        shipping_phone:
-          shippingPhone,
+        shipping_phone: shippingPhone,
 
-        shipping_address:
-          shippingAddress,
+        shipping_address: shippingAddress,
 
-        shipping_city:
-          shippingCity,
+        shipping_city: shippingCity,
 
-        shipping_postal_code:
-          shippingPostalCode,
+        shipping_postal_code: shippingPostalCode,
 
-        shipping_country:
-          shippingCountry,
+        shipping_country: shippingCountry,
 
-        customer_note:
-          customerNote,
+        customer_note: customerNote,
 
-        payment_method:
-          paymentMethodName,
+        payment_method: paymentMethodName,
 
-        payment_method_id:
-          paymentMethodId,
+        payment_method_id: paymentMethodId,
 
-        payment_method_snapshot:
-          paymentMethodSnapshot,
+        payment_method_snapshot: paymentMethodSnapshot,
 
         /*
          * If fulfillment did not really change, this is the
@@ -695,22 +579,16 @@ export async function PATCH(
          * silently rewritten from seconds precision to
          * minute precision.
          */
-        preferred_fulfillment_at:
-          preferredFulfillmentAt,
+        preferred_fulfillment_at: preferredFulfillmentAt,
 
-        porter_status:
-          porterStatus,
+        porter_status: porterStatus,
 
-        porter_details:
-          porterDetails,
+        porter_details: porterDetails,
       })
       .eq("id", order.id);
 
     if (updateError) {
-      console.error(
-        "Failed to update admin order:",
-        updateError,
-      );
+      console.error("Failed to update admin order:", updateError);
 
       return NextResponse.json(
         {
@@ -731,31 +609,22 @@ export async function PATCH(
         paymentMethodId,
       )
     ) {
-      const {
-        error: paymentHistoryError,
-      } = await supabase
+      const { error: paymentHistoryError } = await supabase
         .from("order_payment_history")
         .insert({
           order_id: order.id,
 
-          payment_method_id:
-            paymentMethodId,
+          payment_method_id: paymentMethodId,
 
-          payment_method_name:
-            paymentMethodName ??
-            "Not specified",
+          payment_method_name: paymentMethodName ?? "Not specified",
 
-          payment_details:
-            paymentMethodSnapshot ?? {},
+          payment_details: paymentMethodSnapshot ?? {},
 
-          event_type:
-            "admin_payment_method_changed",
+          event_type: "admin_payment_method_changed",
 
-          changed_by:
-            user.id,
+          changed_by: user.id,
 
-          changed_by_type:
-            "admin",
+          changed_by_type: "admin",
         });
 
       if (paymentHistoryError) {
@@ -776,42 +645,25 @@ export async function PATCH(
     ===================================================== */
 
     if (
-      !valuesEqual(
-         "porter_status",
-        order.porter_status,
-        porterStatus,
-      ) ||
-      !valuesEqual(
-         "porter_status",
-        order.porter_details,
-        porterDetails,
-      )
+      !valuesEqual("porter_status", order.porter_status, porterStatus) ||
+      !valuesEqual("porter_status", order.porter_details, porterDetails)
     ) {
-      const {
-        error: porterHistoryError,
-      } = await supabase
+      const { error: porterHistoryError } = await supabase
         .from("order_porter_history")
         .insert({
           order_id: order.id,
 
-          porter_status:
-            porterStatus,
+          porter_status: porterStatus,
 
-          porter_details:
-            porterDetails,
+          porter_details: porterDetails,
 
-          changed_by:
-            user.id,
+          changed_by: user.id,
 
-          changed_by_type:
-            "admin",
+          changed_by_type: "admin",
         });
 
       if (porterHistoryError) {
-        console.error(
-          "Failed to create delivery history:",
-          porterHistoryError,
-        );
+        console.error("Failed to create delivery history:", porterHistoryError);
       }
     }
 
@@ -819,174 +671,121 @@ export async function PATCH(
        CHANGE DESCRIPTION
     ===================================================== */
 
-    const FIELD_LABELS: Record<
-      string,
-      string
-    > = {
-      shipping_name:
-        "Shipping name",
+    const FIELD_LABELS: Record<string, string> = {
+      shipping_name: "Shipping name",
 
-      shipping_phone:
-        "Shipping phone",
+      shipping_phone: "Shipping phone",
 
-      shipping_address:
-        "Shipping address",
+      shipping_address: "Shipping address",
 
-      shipping_city:
-        "Shipping city",
+      shipping_city: "Shipping city",
 
-      shipping_postal_code:
-        "Shipping postal code",
+      shipping_postal_code: "Shipping postal code",
 
-      shipping_country:
-        "Shipping country",
+      shipping_country: "Shipping country",
 
-      customer_note:
-        "Customer note",
+      customer_note: "Customer note",
 
-      payment_method:
-        "Payment method",
+      payment_method: "Payment method",
 
-      payment_method_id:
-        "Payment method",
+      payment_method_id: "Payment method",
 
-      preferred_fulfillment_at:
-        "Preferred fulfillment",
+      preferred_fulfillment_at: "Preferred fulfillment",
 
-      porter_status:
-        "Delivery service status",
+      porter_status: "Delivery service status",
 
-      porter_details:
-        "Delivery service details",
+      porter_details: "Delivery service details",
     };
 
-    const displayFields =
-      changedFields.filter(
-        (field) =>
-          field !== "payment_method_id",
+    const displayFields = changedFields.filter(
+      (field) => field !== "payment_method_id",
+    );
+
+    const changeLines = displayFields.map((field) => {
+      const label = FIELD_LABELS[field] ?? field;
+
+      const oldValue = formatValue(
+        field,
+        oldChangedValues[field] == null
+          ? null
+          : String(oldChangedValues[field]),
       );
 
-    const changeLines =
-      displayFields.map((field) => {
-        const label =
-          FIELD_LABELS[field] ?? field;
+      const newValue = formatValue(
+        field,
+        newChangedValues[field] == null
+          ? null
+          : String(newChangedValues[field]),
+      );
 
-        const oldValue =
-          formatValue(
-            field,
-            oldChangedValues[field] == null
-              ? null
-              : String(
-                  oldChangedValues[field],
-                ),
-          );
-
-        const newValue =
-          formatValue(
-            field,
-            newChangedValues[field] == null
-              ? null
-              : String(
-                  newChangedValues[field],
-                ),
-          );
-
-        return `${label}: ${oldValue} → ${newValue}`;
-      });
+      return `${label}: ${oldValue} → ${newValue}`;
+    });
 
     const changeSummary =
-      `Admin updated order ${order.order_number}:\n` +
-      changeLines.join("\n");
+      `Admin updated order ${order.order_number}:\n` + changeLines.join("\n");
 
     /* =====================================================
        SAVE ORDER CHANGE HISTORY
     ===================================================== */
 
-    const {
-      error: historyError,
-    } = await supabase
+    const { error: historyError } = await supabase
       .from("order_change_history")
       .insert({
-        order_id:
-          order.id,
+        order_id: order.id,
 
-        change_type:
-          "admin_order_update",
+        change_type: "admin_order_update",
 
-        changed_by:
-          user.id,
+        changed_by: user.id,
 
-        changed_by_type:
-          "admin",
+        changed_by_type: "admin",
 
-        description:
-          changeSummary,
+        description: changeSummary,
 
-        old_value:
-          oldChangedValues,
+        old_value: oldChangedValues,
 
-        new_value:
-          newChangedValues,
+        new_value: newChangedValues,
       });
 
     if (historyError) {
-      console.error(
-        "Failed to create order change history:",
-        historyError,
-      );
+      console.error("Failed to create order change history:", historyError);
     }
 
     /* =====================================================
        MARK CUSTOMER CHANGE
     ===================================================== */
 
-    const {
-      error: changeMarkerError,
-    } = await supabase
+    const { error: changeMarkerError } = await supabase
       .from("orders")
       .update({
-        customer_change_unread:
-          true,
+        customer_change_unread: true,
 
-        customer_change_at:
-          new Date().toISOString(),
+        customer_change_at: new Date().toISOString(),
 
-        customer_change_summary:
-          changeSummary,
+        customer_change_summary: changeSummary,
       })
       .eq("id", order.id);
 
     if (changeMarkerError) {
-      console.error(
-        "Failed to mark customer order change:",
-        changeMarkerError,
-      );
+      console.error("Failed to mark customer order change:", changeMarkerError);
     }
 
     /* =====================================================
        CUSTOMER NOTIFICATION
     ===================================================== */
 
-    const {
-      error: customerNotificationError,
-    } = await supabase
+    const { error: customerNotificationError } = await supabase
       .from("notifications")
       .insert({
-        user_id:
-          order.user_id,
+        user_id: order.user_id,
 
-        type:
-          "order_updated",
+        type: "order_updated",
 
-        title:
-          "Order updated",
+        title: "Order updated",
 
         message:
-          `Your order ${order.order_number} ` +
-          `has been updated by the shop.`,
+          `Your order ${order.order_number} ` + `has been updated by the shop.`,
 
-        order_id:
-          order.id,
+        order_id: order.id,
       });
 
     if (customerNotificationError) {
@@ -1005,24 +804,17 @@ export async function PATCH(
 
       changed: true,
 
-      changed_fields:
-        changedFields,
+      changed_fields: changedFields,
 
-      message:
-        "Order updated successfully.",
+      message: "Order updated successfully.",
     });
   } catch (error) {
-    console.error(
-      "Admin customer order update error:",
-      error,
-    );
+    console.error("Admin customer order update error:", error);
 
     return NextResponse.json(
       {
         error:
-          error instanceof Error
-            ? error.message
-            : "Failed to update order.",
+          error instanceof Error ? error.message : "Failed to update order.",
       },
       { status: 500 },
     );
