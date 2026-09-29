@@ -18,17 +18,31 @@ export default async function EditCategoryPage({ params }: Props) {
 
   const supabase = await createClient();
 
-  const { data: category, error } = await supabase
-    .from("categories")
-    .select(
-      "id, name, slug, description, image_url, is_active, sort_order, image_public_id"
-    )
-    .eq("id", id)
-    .single();
+  const [
+    { data: category, error },
+    { data: siteSettings },
+  ] = await Promise.all([
+    supabase
+      .from("categories")
+      .select(
+        "id, name, slug, description, image_url, is_active, sort_order, image_public_id",
+      )
+      .eq("id", id)
+      .single(),
+
+    supabase
+      .from("site_settings")
+      .select("cloudinary_images_enabled")
+      .eq("id", true)
+      .maybeSingle(),
+  ]);
 
   if (error || !category) {
     notFound();
   }
+
+  const cloudinaryImagesEnabled =
+    siteSettings?.cloudinary_images_enabled ?? true;
 
   return (
     <main className="mx-auto w-5xl px-4 py-8">
@@ -40,7 +54,10 @@ export default async function EditCategoryPage({ params }: Props) {
         </p>
       </div>
 
-      <EditCategoryForm category={category} />
+      <EditCategoryForm
+        category={category}
+        cloudinaryImagesEnabled={cloudinaryImagesEnabled}
+      />
     </main>
   );
 }

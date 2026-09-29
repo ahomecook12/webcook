@@ -4,12 +4,14 @@ import Image from "next/image";
 import { useState } from "react";
 import { X, Maximize2 } from "lucide-react";
 import ProductShare from "@/components/storefront/product-share";
+import { CLOUDINARY_FALLBACK_IMAGE } from "@/app/constants";
 
 type ProductGalleryProps = {
   productId: string;
   productName: string;
   images: string[];
   videos: string[];
+  cloudinaryImagesEnabled?: boolean;
 };
 
 function getYouTubeEmbedUrl(url: string): string | null {
@@ -29,9 +31,7 @@ function getYouTubeEmbedUrl(url: string): string | null {
 
       // youtube.com/shorts/VIDEO_ID
       if (parsed.pathname.startsWith("/shorts/")) {
-        const videoId = parsed.pathname
-          .split("/shorts/")[1]
-          ?.split("/")[0];
+        const videoId = parsed.pathname.split("/shorts/")[1]?.split("/")[0];
 
         if (videoId) {
           return `https://www.youtube.com/embed/${videoId}`;
@@ -74,9 +74,7 @@ function getYouTubeWatchUrl(url: string): string {
       }
 
       if (parsed.pathname.startsWith("/shorts/")) {
-        const videoId = parsed.pathname
-          .split("/shorts/")[1]
-          ?.split("/")[0];
+        const videoId = parsed.pathname.split("/shorts/")[1]?.split("/")[0];
 
         if (videoId) {
           return `https://www.youtube.com/watch?v=${videoId}`;
@@ -84,9 +82,7 @@ function getYouTubeWatchUrl(url: string): string {
       }
 
       if (parsed.pathname.startsWith("/embed/")) {
-        const videoId = parsed.pathname
-          .split("/embed/")[1]
-          ?.split("/")[0];
+        const videoId = parsed.pathname.split("/embed/")[1]?.split("/")[0];
 
         if (videoId) {
           return `https://www.youtube.com/watch?v=${videoId}`;
@@ -113,16 +109,26 @@ export default function ProductGallery({
   productName,
   images,
   videos,
+  cloudinaryImagesEnabled = true,
 }: ProductGalleryProps) {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const displayImages = images.map((image) => {
+    const isCloudinaryImage = image.includes("res.cloudinary.com");
+
+    if (!cloudinaryImagesEnabled && isCloudinaryImage) {
+      return CLOUDINARY_FALLBACK_IMAGE;
+    }
+
+    return image;
+  });
 
   return (
     <>
       <div className="space-y-5">
         {/* Product Images */}
-        {images.length > 0 ? (
+        {displayImages.length > 0 ? (
           <div className="grid gap-4 sm:grid-cols-2">
-            {images.map((image, index) => (
+            {displayImages.map((image, index) => (
               <div
                 key={`${image}-${index}`}
                 className="group relative overflow-hidden rounded-xl border bg-muted"
@@ -140,7 +146,11 @@ export default function ProductGallery({
                     fill
                     sizes="(max-width: 640px) 100vw, 50vw"
                     unoptimized
-                    className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                    className={
+                      image === CLOUDINARY_FALLBACK_IMAGE
+                        ? "bg-muted object-contain p-10"
+                        : "object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                    }
                   />
                 </button>
 
@@ -158,16 +168,20 @@ export default function ProductGallery({
                   </button>
 
                   {/* Share */}
-                  <ProductShare
-                    productId={productId}
-                    productName={productName}
-                    imageUrl={image}
-                  />
+
+                  {cloudinaryImagesEnabled &&
+                    image !== CLOUDINARY_FALLBACK_IMAGE && (
+                      <ProductShare
+                        productId={productId}
+                        productName={productName}
+                        imageUrl={image}
+                      />
+                    )}
                 </div>
 
                 {/* Image number */}
                 <div className="absolute bottom-2 left-2 rounded-full bg-background/90 px-2.5 py-1 text-xs font-medium shadow backdrop-blur">
-                  {index + 1} / {images.length}
+                  {index + 1} / {displayImages.length}
                 </div>
               </div>
             ))}
@@ -273,7 +287,11 @@ export default function ProductGallery({
               fill
               sizes="90vw"
               unoptimized
-              className="object-contain"
+              className={
+                selectedImage === CLOUDINARY_FALLBACK_IMAGE
+                  ? "bg-background object-contain p-12"
+                  : "object-contain"
+              }
               priority
             />
 
@@ -288,13 +306,16 @@ export default function ProductGallery({
             </button>
 
             {/* Share from enlarged image */}
-            <div className="absolute bottom-3 right-3">
-              <ProductShare
-                productId={productId}
-                productName={productName}
-                imageUrl={selectedImage}
-              />
-            </div>
+            {cloudinaryImagesEnabled &&
+              selectedImage !== CLOUDINARY_FALLBACK_IMAGE && (
+                <div className="absolute bottom-3 right-3">
+                  <ProductShare
+                    productId={productId}
+                    productName={productName}
+                    imageUrl={selectedImage}
+                  />
+                </div>
+              )}
           </div>
         </div>
       )}

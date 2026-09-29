@@ -12,7 +12,9 @@ import { createClient } from "@/lib/supabase/server";
 export default async function SiteSettingsPage() {
   const { isAdmin } = await requireAdmin();
 
-  if (!isAdmin) redirect("/auth/login");
+  if (!isAdmin) {
+    redirect("/auth/login");
+  }
 
   const supabase = await createClient();
 
@@ -25,7 +27,7 @@ export default async function SiteSettingsPage() {
     supabase
       .from("site_settings")
       .select(
-        "theme, hero_title, hero_description, hero_media, homepage_category_ids, customer_review_images, catalog_mode",
+        "theme, hero_title, hero_description, hero_media, homepage_category_ids, customer_review_images, catalog_mode, cloudinary_images_enabled",
       )
       .eq("id", true)
       .maybeSingle(),
@@ -56,7 +58,9 @@ export default async function SiteSettingsPage() {
       settings={settings as SiteSettings | null}
       categories={categories ?? []}
       storefrontSettings={storefrontSettings}
-      paymentMethods={(paymentMethods ?? []) as PaymentMethod[]}
+      paymentMethods={
+        (paymentMethods ?? []) as PaymentMethod[]
+      }
     />
   );
 }

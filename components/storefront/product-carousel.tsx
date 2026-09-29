@@ -1,6 +1,6 @@
 "use client";
 
-import { CURRENCY_SYMBOL } from "@/app/constants";
+import { CLOUDINARY_FALLBACK_IMAGE, CURRENCY_SYMBOL } from "@/app/constants";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState, type MouseEvent } from "react";
@@ -23,12 +23,20 @@ export type CarouselProduct = {
 function ProductCard({
   product,
   catalogMode = false,
+  cloudinaryImagesEnabled = true,
 }: {
   product: CarouselProduct;
   catalogMode?: boolean;
+  cloudinaryImagesEnabled?: boolean;
 }) {
   const showPrice = !catalogMode && product.display_settings?.price !== false;
   const image = product.images?.[0];
+  const isCloudinaryImage = image?.includes("res.cloudinary.com") ?? false;
+
+  const displayImage =
+    image && (!isCloudinaryImage || cloudinaryImagesEnabled)
+      ? image
+      : CLOUDINARY_FALLBACK_IMAGE;
 
   return (
     <Link
@@ -43,21 +51,19 @@ function ProductCard({
     >
       <div className="overflow-hidden rounded-xl border bg-card shadow-sm transition-transform duration-300 group-hover:scale-[1.04] group-hover:shadow-lg">
         <div className="relative">
-          {image ? (
-            <Image
-              src={image}
-              alt={product.name}
-              width={640}
-              height={640}
-              unoptimized
-              draggable={false}
-              className="aspect-square w-full object-cover"
-            />
-          ) : (
-            <div className="flex aspect-square items-center justify-center bg-muted text-sm text-muted-foreground">
-              No image
-            </div>
-          )}
+          <Image
+            src={displayImage}
+            alt={product.name}
+            width={640}
+            height={640}
+            unoptimized
+            draggable={false}
+            className={`aspect-square w-full ${
+              displayImage === CLOUDINARY_FALLBACK_IMAGE
+                ? "bg-muted object-contain p-8"
+                : "object-cover"
+            }`}
+          />
 
           {/* Custom sticker */}
           {product.sticker && (
@@ -88,7 +94,9 @@ function ProductCard({
             <div className="mt-1 text-sm">
               {product.sale_price != null ? (
                 <>
-                  <span>{CURRENCY_SYMBOL} {Number(product.sale_price).toFixed(2)}</span>
+                  <span>
+                    {CURRENCY_SYMBOL} {Number(product.sale_price).toFixed(2)}
+                  </span>
 
                   <span className="ml-2 text-muted-foreground line-through">
                     {CURRENCY_SYMBOL} {Number(product.price).toFixed(2)}
@@ -108,9 +116,11 @@ function ProductCard({
 export function ProductCarousel({
   products,
   catalogMode = false,
+  cloudinaryImagesEnabled = true,
 }: {
   products: CarouselProduct[];
   catalogMode?: boolean;
+  cloudinaryImagesEnabled?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -260,6 +270,7 @@ export function ProductCarousel({
             key={`${product.id}-${index}`}
             product={product}
             catalogMode={catalogMode}
+            cloudinaryImagesEnabled={cloudinaryImagesEnabled}
           />
         ))}
       </div>

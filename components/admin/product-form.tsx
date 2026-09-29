@@ -82,10 +82,12 @@ export function ProductForm({
   product,
   categories = [],
   initialCategoryIds = [],
+  cloudinaryImagesEnabled = true,
 }: {
   product?: Product;
   categories?: Category[];
   initialCategoryIds?: string[];
+  cloudinaryImagesEnabled?: boolean;
 }) {
   const router = useRouter();
   const editing = Boolean(product);
@@ -103,7 +105,7 @@ export function ProductForm({
   const [weight, setWeight] = useState(asInputValue(product?.weight_grams));
   const [active, setActive] = useState(product?.active ?? true);
   const [availableForSale, setAvailableForSale] = useState(
-    product?.available_for_sale ?? true,
+    product?.available_for_sale ?? false,
   );
   const [displaySettings, setDisplaySettings] =
     useState<ProductDisplaySettings>({
@@ -125,6 +127,13 @@ export function ProductForm({
   const [aiAnalyzing, setAiAnalyzing] = useState(false);
 
   function selectImages(event: React.ChangeEvent<HTMLInputElement>) {
+    if (!cloudinaryImagesEnabled) {
+      event.target.value = "";
+      alert(
+        "Cloudinary images are currently disabled. New image uploads are unavailable.",
+      );
+      return;
+    }
     const additions = Array.from(event.target.files ?? []).map((file) => ({
       file,
       preview: URL.createObjectURL(file),
@@ -173,6 +182,12 @@ export function ProductForm({
     }
   }
   async function uploadImages() {
+    if (!cloudinaryImagesEnabled) {
+      alert(
+        "Cloudinary images are currently disabled. Image uploads are unavailable.",
+      );
+      return;
+    }
     if (!images.some((image) => !image.url && image.file)) return;
     setUploading(true);
     try {
@@ -318,7 +333,7 @@ export function ProductForm({
     if (!name.trim()) return alert("Please enter a product name.");
     if (!price || Number(price) <= 0)
       return alert("Please enter a valid price.");
-    if (!images.length) return alert("Please add at least one product image.");
+   // if (!images.length) return alert("Please add at least one product image.");
     if (images.some((image) => !image.url))
       return alert("Please upload all product images before saving.");
     setSaving(true);
@@ -428,11 +443,16 @@ export function ProductForm({
           <CardHeader className="pb-4">
             <CardTitle className="text-lg">Product Images</CardTitle>
           </CardHeader>
+
           <CardContent className="space-y-4">
             <div>
               <label
                 htmlFor="product-images"
-                className="inline-flex cursor-pointer items-center rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted"
+                className={`inline-flex items-center rounded-lg border px-4 py-2 text-sm font-medium ${
+                  cloudinaryImagesEnabled
+                    ? "cursor-pointer hover:bg-muted"
+                    : "cursor-not-allowed opacity-50"
+                }`}
               >
                 📷 Choose images
               </label>
@@ -443,12 +463,21 @@ export function ProductForm({
                 accept="image/*"
                 multiple
                 onChange={selectImages}
+                disabled={!cloudinaryImagesEnabled || uploading}
                 className="hidden"
               />
 
-              <p className="mt-2 text-sm text-muted-foreground">
-                Select one or more product images each max 4.5 MB.
-              </p>
+              {cloudinaryImagesEnabled ? (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Select one or more product images each max 4.5 MB.
+                </p>
+              ) : (
+                <p className="mt-2 text-sm text-amber-600">
+                  Cloudinary images are currently disabled. Existing Cloudinary
+                  images are preserved, but previews and new uploads are
+                  unavailable.
+                </p>
+              )}
             </div>
 
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -471,46 +500,73 @@ export function ProductForm({
                 Uses 1 AI analysis. You choose when to use it.
               </p>
             </div>
+
             {images.length > 0 && (
               <>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  {images.map((image, index) => (
-                    <div
-                      key={`${image.preview}-${index}`}
-                      className="relative overflow-hidden rounded-lg border"
-                    >
-                      <Image
-                        src={image.preview}
-                        alt={`Product image ${index + 1}`}
-                        width={300}
-                        height={300}
-                        unoptimized
-                        className="aspect-square w-full object-cover"
-                      />
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="destructive"
-                        onClick={() => removeImage(index)}
-                        className="absolute right-2 top-2 h-7 w-7"
-                        aria-label={`Remove product image ${index + 1}`}
+                  {images.map((image, index) => {
+                    const isCloudinaryImage =
+                      image.preview.includes("res.cloudinary.com");
+
+                    const canShowImage =
+                      !isCloudinaryImage || cloudinaryImagesEnabled;
+
+                    return (
+                      <div
+                        key={`${image.preview}-${index}`}
+                        className="relative overflow-hidden rounded-lg border"
                       >
-                        ×
-                      </Button>
-                      {image.url && (
-                        <div className="bg-primary px-2 py-1 text-center text-xs text-primary-foreground">
-                          Uploaded
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                        {canShowImage ? (
+                          <Image
+                            src={image.preview}
+                            alt={`Product image ${index + 1}`}
+                            width={300}
+                            height={300}
+                            unoptimized
+                            className="aspect-square w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex aspect-square w-full items-center justify-center bg-muted px-3 text-center text-sm text-muted-foreground">
+                            Cloudinary image hidden
+                          </div>
+                        )}
+
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="destructive"
+                          onClick={() => removeImage(index)}
+                          disabled={
+                            isCloudinaryImage && !cloudinaryImagesEnabled
+                          }
+                          className="absolute right-2 top-2 h-7 w-7"
+                          aria-label={`Remove product image ${index + 1}`}
+                        >
+                          ×
+                        </Button>
+
+                        {image.url && (
+                          <div className="bg-primary px-2 py-1 text-center text-xs text-primary-foreground">
+                            {isCloudinaryImage && !cloudinaryImagesEnabled
+                              ? "Preserved"
+                              : "Uploaded"}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
+
                 <Button
                   type="button"
                   onClick={uploadImages}
-                  disabled={uploading || images.every((image) => image.url)}
+                  disabled={
+                    !cloudinaryImagesEnabled ||
+                    uploading ||
+                    images.every((image) => image.url)
+                  }
                 >
-                  {uploading ? "Uploading..." : "Upload Images"}
+                  {uploading ? "Uploading..." : "🔴 Upload Images"}
                 </Button>
               </>
             )}
@@ -523,10 +579,10 @@ export function ProductForm({
           <CardContent className="space-y-4">
             <TextField
               id="name"
-              label="Product Name"
+              label="🔴 Product Name"
               value={name}
               onChange={setName}
-              placeholder="e.g. Pearl Jhumka Earrings"
+              placeholder="e.g. Masala Dosa"
             />
             <TextField
               id="sticker"
@@ -540,10 +596,10 @@ export function ProductForm({
             </p>
             <TextField
               id="size"
-              label="Size"
+              label="Quantity"
               value={size}
               onChange={setSize}
-              placeholder="e.g. S, M, L or 20 × 30 cm"
+              placeholder="e.g. 2 no.s"
             />
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
@@ -569,7 +625,7 @@ export function ProductForm({
                       .filter(Boolean),
                   )
                 }
-                placeholder="e.g. yellow, jhumka, jewellery, gift, traditional"
+                placeholder="e.g. snack, function special, spicy"
               />
 
               <p className="text-xs text-muted-foreground">
@@ -644,7 +700,7 @@ export function ProductForm({
             <div className="grid gap-4 sm:grid-cols-3">
               <NumberField
                 id="price"
-                label={`Price (${CURRENCY_SYMBOL})`}
+                label={`🔴 Price (${CURRENCY_SYMBOL})`}
                 value={price}
                 onChange={setPrice}
                 required

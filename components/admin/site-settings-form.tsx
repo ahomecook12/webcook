@@ -22,6 +22,7 @@ export type SiteSettings = {
   homepage_category_ids: string[] | null;
   customer_review_images: string[] | null;
   catalog_mode: boolean;
+  cloudinary_images_enabled: boolean;
 };
 
 export type SocialLink = {
@@ -74,6 +75,7 @@ const defaults: SiteSettings = {
   homepage_category_ids: [],
   customer_review_images: [],
   catalog_mode: false,
+    cloudinary_images_enabled: true,
 };
 
 export type HomepageCategory = {
@@ -121,6 +123,9 @@ export function SiteSettingsForm({
     ...defaults,
     ...settings,
   };
+
+  const cloudinaryImagesEnabled =
+  initial.cloudinary_images_enabled ?? true;
 
   const [theme, setTheme] = useState<SiteSettings["theme"]>(initial.theme);
   const [catalogMode, setCatalogMode] = useState(initial.catalog_mode ?? false);
@@ -234,42 +239,67 @@ export function SiteSettingsForm({
     setSocialLinks((current) => current.filter((link) => link.id !== id));
   }
 
-  async function uploadSocialIcon(
-    event: React.ChangeEvent<HTMLInputElement>,
-    id: string,
-  ) {
-    const file = event.target.files?.[0];
-
+async function uploadSocialIcon(
+  event: React.ChangeEvent<HTMLInputElement>,
+  id: string,
+) {
+  if (!cloudinaryImagesEnabled) {
     event.target.value = "";
 
-    if (!file) return;
+    alert(
+      "Cloudinary images are currently disabled. Social icon uploads are unavailable.",
+    );
 
-    setUploading(true);
-
-    try {
-      const body = new FormData();
-
-      body.append("file", file);
-      body.append("folder", "social");
-
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        body,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Icon upload failed.");
-      }
-
-      updateSocialLink(id, "icon_url", data.url as string);
-    } catch (error) {
-      alert(error instanceof Error ? error.message : "Icon upload failed.");
-    } finally {
-      setUploading(false);
-    }
+    return;
   }
+
+  const file = event.target.files?.[0];
+
+  event.target.value = "";
+
+  if (!file) return;
+
+  if (!file.type.startsWith("image/")) {
+    alert("Social icon must be an image.");
+    return;
+  }
+
+  setUploading(true);
+
+  try {
+    const body = new FormData();
+
+    body.append("file", file);
+    body.append("folder", "social");
+
+    const response = await fetch("/api/upload", {
+      method: "POST",
+      body,
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.error || "Icon upload failed.",
+      );
+    }
+
+    updateSocialLink(
+      id,
+      "icon_url",
+      data.url as string,
+    );
+  } catch (error) {
+    alert(
+      error instanceof Error
+        ? error.message
+        : "Icon upload failed.",
+    );
+  } finally {
+    setUploading(false);
+  }
+}
 
   /*
    * ---------------------------------------------------------
@@ -277,19 +307,49 @@ export function SiteSettingsForm({
    * ---------------------------------------------------------
    */
 
-  async function removeHeroMedia(index: number) {
-    const item = media[index];
+ async function removeHeroMedia(index: number) {
+  const item = media[index];
 
-    if (!item) return;
+  if (!item) return;
 
-    const confirmed = window.confirm(
-      "Are you sure you want to remove this hero image?",
+  const isCloudinaryImage =
+    item.type === "image" &&
+    item.url.includes("res.cloudinary.com");
+
+  if (isCloudinaryImage && !cloudinaryImagesEnabled) {
+    alert(
+      "Cloudinary images are currently disabled. This hero image is preserved and cannot be removed while Cloudinary is disabled.",
     );
 
-    if (!confirmed) return;
+    return;
+  }
 
-    try {
-      const response = await fetch("/api/admin/cloudinary/delete", {
+  const confirmed = window.confirm(
+    item.type === "youtube"
+      ? "Are you sure you want to remove this YouTube video?"
+      : "Are you sure you want to remove this hero image?",
+  );
+
+  if (!confirmed) return;
+
+  /*
+   * YouTube items are not stored in Cloudinary.
+   * Remove them only from the local hero-media state.
+   */
+  if (item.type === "youtube") {
+    setMedia((current) =>
+      current.filter(
+        (_, itemIndex) => itemIndex !== index,
+      ),
+    );
+
+    return;
+  }
+
+  try {
+    const response = await fetch(
+      "/api/admin/cloudinary/delete",
+      {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -297,25 +357,34 @@ export function SiteSettingsForm({
         body: JSON.stringify({
           url: item.url,
         }),
-      });
+      },
+    );
 
-      const data = await response.json();
+    const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to remove hero image.");
-      }
-
-      setMedia((current) =>
-        current.filter((_, itemIndex) => itemIndex !== index),
-      );
-    } catch (error) {
-      console.error("Hero image removal error:", error);
-
-      alert(
-        error instanceof Error ? error.message : "Failed to remove hero image.",
+    if (!response.ok) {
+      throw new Error(
+        data.error || "Failed to remove hero image.",
       );
     }
+
+    setMedia((current) =>
+      current.filter(
+        (_, itemIndex) => itemIndex !== index,
+      ),
+    );
+  } catch (error) {
+    console.error("Hero image removal error:", error);
+
+    alert(
+      error instanceof Error
+        ? error.message
+        : "Failed to remove hero image.",
+    );
   }
+}
+
+
   function addYouTubeHero() {
     const url = youtubeUrl.trim();
 
@@ -355,113 +424,193 @@ export function SiteSettingsForm({
    * ---------------------------------------------------------
    */
 
-  async function uploadHeroMedia(event: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files ?? []);
-
+ async function uploadHeroMedia(
+  event: React.ChangeEvent<HTMLInputElement>,
+) {
+  if (!cloudinaryImagesEnabled) {
     event.target.value = "";
 
-    if (!files.length) return;
-
-    setUploading(true);
-
-    try {
-      const imageFiles = files.filter((file) => file.type.startsWith("image/"));
-
-      if (imageFiles.length !== files.length) {
-        throw new Error("Hero media can only contain images.");
-      }
-
-      const uploaded = await Promise.all(
-        imageFiles.map(async (file) => {
-          const body = new FormData();
-
-          body.append("file", file);
-          body.append("folder", "hero");
-
-          const response = await fetch("/api/upload", {
-            method: "POST",
-            body,
-          });
-
-          const data = await response.json();
-
-          if (!response.ok) {
-            throw new Error(data.error || "Hero image upload failed.");
-          }
-
-          return {
-            url: data.url as string,
-            type: "image" as const,
-          };
-        }),
-      );
-
-      setMedia((current) => [...current, ...uploaded]);
-    } catch (error) {
-      alert(
-        error instanceof Error ? error.message : "Hero image upload failed.",
-      );
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  async function uploadCustomerReviewImages(
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) {
-    const files = Array.from(event.target.files ?? []);
-
-    event.target.value = "";
-
-    if (!files.length) return;
-
-    setUploading(true);
-
-    try {
-      const uploaded = await Promise.all(
-        files.map(async (file) => {
-          const body = new FormData();
-
-          body.append("file", file);
-          body.append("folder", "reviews");
-
-          const response = await fetch("/api/upload", {
-            method: "POST",
-            body,
-          });
-
-          const data = await response.json();
-
-          if (!response.ok) {
-            throw new Error(data.error || "Review image upload failed.");
-          }
-
-          return data.url as string;
-        }),
-      );
-
-      setCustomerReviewImages((current) => [...current, ...uploaded]);
-    } catch (error) {
-      alert(
-        error instanceof Error ? error.message : "Review image upload failed.",
-      );
-    } finally {
-      setUploading(false);
-    }
-  }
-  async function removeCustomerReviewImage(index: number) {
-    const url = customerReviewImages[index];
-
-    if (!url) return;
-
-    const confirmed = window.confirm(
-      "Are you sure you want to remove this customer review image?",
+    alert(
+      "Cloudinary images are currently disabled. Hero image uploads are unavailable.",
     );
 
-    if (!confirmed) return;
+    return;
+  }
 
-    try {
-      const response = await fetch("/api/admin/cloudinary/delete", {
+  const files = Array.from(event.target.files ?? []);
+
+  event.target.value = "";
+
+  if (!files.length) return;
+
+  setUploading(true);
+
+  try {
+    const imageFiles = files.filter((file) =>
+      file.type.startsWith("image/"),
+    );
+
+    if (imageFiles.length !== files.length) {
+      throw new Error(
+        "Hero media can only contain images.",
+      );
+    }
+
+    const uploaded = await Promise.all(
+      imageFiles.map(async (file) => {
+        const body = new FormData();
+
+        body.append("file", file);
+        body.append("folder", "hero");
+
+        const response = await fetch("/api/upload", {
+          method: "POST",
+          body,
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.error || "Hero image upload failed.",
+          );
+        }
+
+        return {
+          url: data.url as string,
+          type: "image" as const,
+        };
+      }),
+    );
+
+    setMedia((current) => [...current, ...uploaded]);
+  } catch (error) {
+    alert(
+      error instanceof Error
+        ? error.message
+        : "Hero image upload failed.",
+    );
+  } finally {
+    setUploading(false);
+  }
+}
+
+  async function uploadCustomerReviewImages(
+  event: React.ChangeEvent<HTMLInputElement>,
+) {
+  if (!cloudinaryImagesEnabled) {
+    event.target.value = "";
+
+    alert(
+      "Cloudinary images are currently disabled. Customer review image uploads are unavailable.",
+    );
+
+    return;
+  }
+
+  const files = Array.from(event.target.files ?? []);
+
+  event.target.value = "";
+
+  if (!files.length) return;
+
+  setUploading(true);
+
+  try {
+    const imageFiles = files.filter((file) =>
+      file.type.startsWith("image/"),
+    );
+
+    if (imageFiles.length !== files.length) {
+      throw new Error(
+        "Customer reviews can only contain images.",
+      );
+    }
+
+    const uploaded = await Promise.all(
+      imageFiles.map(async (file) => {
+        const body = new FormData();
+
+        body.append("file", file);
+        body.append("folder", "reviews");
+
+        const response = await fetch("/api/upload", {
+          method: "POST",
+          body,
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.error || "Review image upload failed.",
+          );
+        }
+
+        return data.url as string;
+      }),
+    );
+
+    setCustomerReviewImages((current) => [
+      ...current,
+      ...uploaded,
+    ]);
+  } catch (error) {
+    alert(
+      error instanceof Error
+        ? error.message
+        : "Review image upload failed.",
+    );
+  } finally {
+    setUploading(false);
+  }
+}
+
+ async function removeCustomerReviewImage(
+  index: number,
+) {
+  const url = customerReviewImages[index];
+
+  if (!url) return;
+
+  const isCloudinaryImage =
+    url.includes("res.cloudinary.com");
+
+  if (
+    isCloudinaryImage &&
+    !cloudinaryImagesEnabled
+  ) {
+    alert(
+      "Cloudinary images are currently disabled. This customer review image is preserved and cannot be removed while Cloudinary is disabled.",
+    );
+
+    return;
+  }
+
+  const confirmed = window.confirm(
+    "Are you sure you want to remove this customer review image?",
+  );
+
+  if (!confirmed) return;
+
+  /*
+   * Non-Cloudinary images can simply be removed
+   * from the settings array.
+   */
+  if (!isCloudinaryImage) {
+    setCustomerReviewImages((current) =>
+      current.filter(
+        (_, imageIndex) => imageIndex !== index,
+      ),
+    );
+
+    return;
+  }
+
+  try {
+    const response = await fetch(
+      "/api/admin/cloudinary/delete",
+      {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -469,29 +618,36 @@ export function SiteSettingsForm({
         body: JSON.stringify({
           url,
         }),
-      });
+      },
+    );
 
-      const data = await response.json();
+    const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(
-          data.error || "Failed to remove customer review image.",
-        );
-      }
-
-      setCustomerReviewImages((current) =>
-        current.filter((_, imageIndex) => imageIndex !== index),
-      );
-    } catch (error) {
-      console.error("Customer review image removal error:", error);
-
-      alert(
-        error instanceof Error
-          ? error.message
-          : "Failed to remove customer review image.",
+    if (!response.ok) {
+      throw new Error(
+        data.error ||
+          "Failed to remove customer review image.",
       );
     }
+
+    setCustomerReviewImages((current) =>
+      current.filter(
+        (_, imageIndex) => imageIndex !== index,
+      ),
+    );
+  } catch (error) {
+    console.error(
+      "Customer review image removal error:",
+      error,
+    );
+
+    alert(
+      error instanceof Error
+        ? error.message
+        : "Failed to remove customer review image.",
+    );
   }
+}
 
   function addPaymentMethod() {
     setPaymentMethodsState((current) => [
@@ -524,11 +680,30 @@ export function SiteSettingsForm({
   }
 
 async function removePaymentMethod(id: string) {
-  const paymentMethod = paymentMethodsState.find(
-    (method) => method.id === id,
-  );
+  const paymentMethod =
+    paymentMethodsState.find(
+      (method) => method.id === id,
+    );
 
   if (!paymentMethod) return;
+
+  const qrCodeUrl =
+    paymentMethod.qr_code_url ?? null;
+
+  const hasCloudinaryQr =
+    Boolean(qrCodeUrl) &&
+    qrCodeUrl!.includes("res.cloudinary.com");
+
+  if (
+    hasCloudinaryQr &&
+    !cloudinaryImagesEnabled
+  ) {
+    alert(
+      "This payment method has a Cloudinary QR code. Cloudinary images are currently disabled, so the payment method cannot be removed yet. Turn Cloudinary images back on first if you want to remove it and its QR code.",
+    );
+
+    return;
+  }
 
   const confirmed = window.confirm(
     `Are you sure you want to remove "${paymentMethod.display_name}"?`,
@@ -537,22 +712,31 @@ async function removePaymentMethod(id: string) {
   if (!confirmed) return;
 
   try {
-    // Delete QR image from Cloudinary first
-    if (paymentMethod.qr_code_url) {
-      const response = await fetch("/api/admin/cloudinary/delete", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+    /*
+     * Delete QR from Cloudinary only when the stored
+     * QR is actually a Cloudinary image.
+     */
+    if (hasCloudinaryQr && qrCodeUrl) {
+      const response = await fetch(
+        "/api/admin/cloudinary/delete",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            url: qrCodeUrl,
+          }),
         },
-        body: JSON.stringify({
-          url: paymentMethod.qr_code_url,
-        }),
-      });
+      );
 
       const data = await response.json();
 
       if (!response.ok) {
-        console.error("Payment QR deletion failed:", data);
+        console.error(
+          "Payment QR deletion failed:",
+          data,
+        );
 
         alert(
           data.error ||
@@ -563,12 +747,19 @@ async function removePaymentMethod(id: string) {
       }
     }
 
-    // Remove payment method from local form state
+    /*
+     * Remove payment method from local form state.
+     */
     setPaymentMethodsState((current) =>
-      current.filter((method) => method.id !== id),
+      current.filter(
+        (method) => method.id !== id,
+      ),
     );
   } catch (error) {
-    console.error("Payment method removal error:", error);
+    console.error(
+      "Payment method removal error:",
+      error,
+    );
 
     alert(
       error instanceof Error
@@ -582,6 +773,16 @@ async function uploadPaymentQrCode(
   event: React.ChangeEvent<HTMLInputElement>,
   id: string,
 ) {
+  if (!cloudinaryImagesEnabled) {
+    event.target.value = "";
+
+    alert(
+      "Cloudinary images are currently disabled. Payment QR code uploads are unavailable.",
+    );
+
+    return;
+  }
+
   const file = event.target.files?.[0];
 
   event.target.value = "";
@@ -595,11 +796,19 @@ async function uploadPaymentQrCode(
       throw new Error("QR code must be an image.");
     }
 
-    // Get the existing QR code BEFORE replacing it
-    const paymentMethod = paymentMethodsState.find((method) => method.id === id);
-    const oldQrCodeUrl = paymentMethod?.qr_code_url ?? null;
+    /*
+     * Get the existing QR code before replacing it.
+     */
+    const paymentMethod = paymentMethodsState.find(
+      (method) => method.id === id,
+    );
 
-    // Upload new QR code
+    const oldQrCodeUrl =
+      paymentMethod?.qr_code_url ?? null;
+
+    /*
+     * Upload the new QR code.
+     */
     const body = new FormData();
 
     body.append("file", file);
@@ -613,28 +822,47 @@ async function uploadPaymentQrCode(
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || "QR code upload failed.");
+      throw new Error(
+        data.error || "QR code upload failed.",
+      );
     }
 
     const newQrCodeUrl = data.url as string;
 
-    // Update UI with new image
-    updatePaymentMethod(id, "qr_code_url", newQrCodeUrl);
+    /*
+     * Update UI with the new image.
+     */
+    updatePaymentMethod(
+      id,
+      "qr_code_url",
+      newQrCodeUrl,
+    );
 
-    // Delete old Cloudinary image
-    if (oldQrCodeUrl && oldQrCodeUrl !== newQrCodeUrl) {
+    /*
+     * Delete the old image only when it was actually
+     * a Cloudinary image.
+     */
+    if (
+      oldQrCodeUrl &&
+      oldQrCodeUrl !== newQrCodeUrl &&
+      oldQrCodeUrl.includes("res.cloudinary.com")
+    ) {
       try {
-        const deleteResponse = await fetch("/api/admin/cloudinary/delete", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
+        const deleteResponse = await fetch(
+          "/api/admin/cloudinary/delete",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              url: oldQrCodeUrl,
+            }),
           },
-          body: JSON.stringify({
-            url: oldQrCodeUrl,
-          }),
-        });
+        );
 
-        const deleteData = await deleteResponse.json();
+        const deleteData =
+          await deleteResponse.json();
 
         if (!deleteResponse.ok) {
           console.error(
@@ -943,113 +1171,176 @@ async function uploadPaymentQrCode(
             HERO
         ====================================================== */}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Homepage hero carousel</CardTitle>
-          </CardHeader>
+     <Card>
+  <CardHeader>
+    <CardTitle>Homepage hero carousel</CardTitle>
+  </CardHeader>
 
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="hero-title">Title</Label>
+  <CardContent className="space-y-4">
+    <div className="space-y-2">
+      <Label htmlFor="hero-title">Title</Label>
 
-              <Input
-                id="hero-title"
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-              />
-            </div>
+      <Input
+        id="hero-title"
+        value={title}
+        onChange={(event) =>
+          setTitle(event.target.value)
+        }
+      />
+    </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="hero-description">Description</Label>
+    <div className="space-y-2">
+      <Label htmlFor="hero-description">
+        Description
+      </Label>
 
-              <Textarea
-                id="hero-description"
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                rows={4}
-              />
-            </div>
+      <Textarea
+        id="hero-description"
+        value={description}
+        onChange={(event) =>
+          setDescription(event.target.value)
+        }
+        rows={4}
+      />
+    </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="hero-upload">Upload hero images</Label>
+    <div className="space-y-2">
+      <Label htmlFor="hero-upload">
+        Upload hero images
+      </Label>
 
-              <Input
-                id="hero-upload"
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={uploadHeroMedia}
-                disabled={uploading}
-              />
+      <Input
+        id="hero-upload"
+        type="file"
+        accept="image/*"
+        multiple
+        onChange={uploadHeroMedia}
+        disabled={
+          !cloudinaryImagesEnabled || uploading
+        }
+      />
 
-              <p className="text-sm text-muted-foreground">
-                {uploading
-                  ? "Uploading to Cloudinary..."
-                  : "Upload images only. Images are stored in Cloudinary; only their URLs are saved in Supabase."}
-              </p>
-            </div>
+      {cloudinaryImagesEnabled ? (
+        <p className="text-sm text-muted-foreground">
+          {uploading
+            ? "Uploading to Cloudinary..."
+            : "Upload images only. Images are stored in Cloudinary; only their URLs are saved in Supabase."}
+        </p>
+      ) : (
+        <p className="text-sm text-amber-600">
+          Cloudinary images are currently disabled.
+          Existing Cloudinary hero images are preserved,
+          but previews and new image uploads are
+          unavailable.
+        </p>
+      )}
+    </div>
 
-            {media.length > 0 && (
-              <div className="flex gap-3 overflow-x-auto pb-2">
-                {media.map((item, index) => (
-                  <div
-                    key={`${item.url}-${index}`}
-                    className="relative w-48 shrink-0 overflow-hidden rounded-lg border"
-                  >
-                    <Image
-                      src={item.url}
-                      alt={`Hero image ${index + 1}`}
-                      width={300}
-                      height={300}
-                      unoptimized
-                      className="aspect-square w-full object-cover"
-                    />
+    {media.length > 0 && (
+      <div className="flex gap-3 overflow-x-auto pb-2">
+        {media.map((item, index) => {
+          const isCloudinaryImage =
+            item.type === "image" &&
+            item.url.includes("res.cloudinary.com");
 
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => removeHeroMedia(index)}
-                      className="absolute right-2 top-2"
-                    >
-                      Remove
-                    </Button>
+          const canShowMedia =
+            !isCloudinaryImage ||
+            cloudinaryImagesEnabled;
 
-                    <p className="px-2 py-1 text-xs text-muted-foreground">
-                      {item.type}
-                    </p>
+          return (
+            <div
+              key={`${item.url}-${index}`}
+              className="relative w-48 shrink-0 overflow-hidden rounded-lg border"
+            >
+              {canShowMedia ? (
+                item.type === "image" ? (
+                  <Image
+                    src={item.url}
+                    alt={`Hero image ${index + 1}`}
+                    width={300}
+                    height={300}
+                    unoptimized
+                    className="aspect-square w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex aspect-square w-full items-center justify-center bg-muted p-4 text-center text-sm">
+                    <div>
+                      <p className="font-medium">
+                        YouTube video
+                      </p>
+
+                      <p className="mt-2 break-all text-xs text-muted-foreground">
+                        {item.url}
+                      </p>
+                    </div>
                   </div>
-                ))}
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="youtube-hero-url">Add YouTube video</Label>
+                )
+              ) : (
+                <div className="flex aspect-square w-full items-center justify-center bg-muted p-4 text-center text-sm text-muted-foreground">
+                  Cloudinary image hidden
+                </div>
+              )}
 
-              <div className="flex gap-2">
-                <Input
-                  id="youtube-hero-url"
-                  type="url"
-                  placeholder="https://www.youtube.com/watch?v=..."
-                  value={youtubeUrl}
-                  onChange={(event) => setYoutubeUrl(event.target.value)}
-                />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  removeHeroMedia(index)
+                }
+                disabled={
+                  isCloudinaryImage &&
+                  !cloudinaryImagesEnabled
+                }
+                className="absolute right-2 top-2"
+              >
+                Remove
+              </Button>
 
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={addYouTubeHero}
-                >
-                  Add
-                </Button>
-              </div>
-
-              <p className="text-xs text-muted-foreground">
-                YouTube videos are embedded only when a customer clicks the play
-                button.
+              <p className="px-2 py-1 text-xs text-muted-foreground">
+                {isCloudinaryImage &&
+                !cloudinaryImagesEnabled
+                  ? "image · preserved"
+                  : item.type}
               </p>
             </div>
-          </CardContent>
-        </Card>
+          );
+        })}
+      </div>
+    )}
+
+    <div className="space-y-2">
+      <Label htmlFor="youtube-hero-url">
+        Add YouTube video
+      </Label>
+
+      <div className="flex gap-2">
+        <Input
+          id="youtube-hero-url"
+          type="url"
+          placeholder="https://www.youtube.com/watch?v=..."
+          value={youtubeUrl}
+          onChange={(event) =>
+            setYoutubeUrl(event.target.value)
+          }
+        />
+
+        <Button
+          type="button"
+          variant="outline"
+          onClick={addYouTubeHero}
+        >
+          Add
+        </Button>
+      </div>
+
+      <p className="text-xs text-muted-foreground">
+        YouTube videos are embedded only when a customer
+        clicks the play button.
+      </p>
+    </div>
+  </CardContent>
+</Card>
 
         {/* =====================================================
             HOMEPAGE PRODUCT STRIPS
@@ -1240,86 +1531,117 @@ async function uploadPaymentQrCode(
     CUSTOMER REVIEWS
 ====================================================== */}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Customer Review Images</CardTitle>
+       <Card>
+  <CardHeader>
+    <CardTitle>Customer Review Images</CardTitle>
 
-            <p className="text-sm text-muted-foreground">
-              Upload screenshots or images of customer reviews. These will
-              appear in a sliding gallery on the homepage.
-            </p>
-          </CardHeader>
+    <p className="text-sm text-muted-foreground">
+      Upload screenshots or images of customer reviews.
+      These will appear in a sliding gallery on the
+      homepage.
+    </p>
+  </CardHeader>
 
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="customer-review-upload">
-                Upload review images
-              </Label>
+  <CardContent className="space-y-4">
+    <div className="space-y-2">
+      <Label htmlFor="customer-review-upload">
+        Upload review images
+      </Label>
 
-              <Input
-                id="customer-review-upload"
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={uploadCustomerReviewImages}
-                disabled={uploading}
-              />
+      <Input
+        id="customer-review-upload"
+        type="file"
+        accept="image/*"
+        multiple
+        onChange={uploadCustomerReviewImages}
+        disabled={
+          !cloudinaryImagesEnabled || uploading
+        }
+      />
 
-              <p className="text-xs text-muted-foreground">
-                {uploading
-                  ? "Uploading to Cloudinary..."
-                  : "You can upload multiple customer review images."}
-              </p>
-            </div>
+      {cloudinaryImagesEnabled ? (
+        <p className="text-xs text-muted-foreground">
+          {uploading
+            ? "Uploading to Cloudinary..."
+            : "You can upload multiple customer review images."}
+        </p>
+      ) : (
+        <p className="text-sm text-amber-600">
+          Cloudinary images are currently disabled.
+          Existing review images are preserved, but
+          previews and new uploads are unavailable.
+        </p>
+      )}
+    </div>
 
-            {customerReviewImages.length > 0 && (
-              <div className="flex gap-3 overflow-x-auto pb-2">
-                {customerReviewImages.length > 0 && (
-                  <div className="flex gap-3 overflow-x-auto pb-2">
-                    {customerReviewImages.map((url, index) => (
-                      <div
-                        key={`${url}-${index}`}
-                        className="relative w-48 shrink-0 overflow-hidden rounded-lg border"
-                      >
-                        <Image
-                          src={url}
-                          alt={`Customer review ${index + 1}`}
-                          width={300}
-                          height={300}
-                          unoptimized
-                          className="aspect-square w-full object-cover"
-                        />
+    {customerReviewImages.length > 0 ? (
+      <div className="flex gap-3 overflow-x-auto pb-2">
+        {customerReviewImages.map((url, index) => {
+          const isCloudinaryImage =
+            url.includes("res.cloudinary.com");
 
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => removeCustomerReviewImage(index)}
-                          className="absolute right-2 top-2"
-                        >
-                          Remove
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
+          const canShowImage =
+            !isCloudinaryImage ||
+            cloudinaryImagesEnabled;
+
+          return (
+            <div
+              key={`${url}-${index}`}
+              className="relative w-48 shrink-0 overflow-hidden rounded-lg border"
+            >
+              {canShowImage ? (
+                <Image
+                  src={url}
+                  alt={`Customer review ${index + 1}`}
+                  width={300}
+                  height={300}
+                  unoptimized
+                  className="aspect-square w-full object-cover"
+                />
+              ) : (
+                <div className="flex aspect-square w-full items-center justify-center bg-muted p-4 text-center text-sm text-muted-foreground">
+                  Cloudinary image hidden
+                </div>
+              )}
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  removeCustomerReviewImage(index)
+                }
+                disabled={
+                  isCloudinaryImage &&
+                  !cloudinaryImagesEnabled
+                }
+                className="absolute right-2 top-2"
+              >
+                Remove
+              </Button>
+
+              {isCloudinaryImage &&
+                !cloudinaryImagesEnabled && (
+                  <p className="px-2 py-1 text-center text-xs text-muted-foreground">
+                    Preserved
+                  </p>
                 )}
-              </div>
-            )}
-
-            {customerReviewImages.length === 0 && (
-              <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-                No customer review images uploaded yet.
-              </p>
-            )}
-          </CardContent>
-        </Card>
+            </div>
+          );
+        })}
+      </div>
+    ) : (
+      <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+        No customer review images uploaded yet.
+      </p>
+    )}
+  </CardContent>
+</Card>
         {/* =====================================================
             SOCIAL MEDIA
         ====================================================== */}
 
-        {/* =====================================================
-    SOCIAL MEDIA
-====================================================== */}
+      
 
         <Card>
           <CardHeader>
@@ -1416,49 +1738,68 @@ async function uploadPaymentQrCode(
 
                           {/* ICON */}
 
-                          <div className="space-y-2">
-                            <Label>Icon</Label>
+<div className="space-y-2">
+  <Label>Icon</Label>
 
-                            <div className="flex items-center gap-4">
-                              {/* CURRENT ICON */}
+  <div className="flex items-center gap-4">
+    {/* CURRENT ICON */}
 
-                              {link.icon_url ? (
-                                <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full border">
-                                  <Image
-                                    src={link.icon_url}
-                                    alt={link.name || "Social icon"}
-                                    fill
-                                    unoptimized
-                                    className="object-cover"
-                                  />
-                                </div>
-                              ) : (
-                                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border text-xs text-muted-foreground">
-                                  No icon
-                                </div>
-                              )}
+    {link.icon_url ? (
+      link.icon_url.includes(
+        "res.cloudinary.com",
+      ) && !cloudinaryImagesEnabled ? (
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border bg-muted px-1 text-center text-[9px] text-muted-foreground">
+          Cloudinary
+          <br />
+          hidden
+        </div>
+      ) : (
+        <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full border">
+          <Image
+            src={link.icon_url}
+            alt={link.name || "Social icon"}
+            fill
+            unoptimized
+            className="object-cover"
+          />
+        </div>
+      )
+    ) : (
+      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border text-xs text-muted-foreground">
+        No icon
+      </div>
+    )}
 
-                              {/* UPLOAD */}
+    {/* UPLOAD */}
 
-                              <div className="min-w-0 flex-1 space-y-1">
-                                <Input
-                                  id={`social-icon-${link.id}`}
-                                  type="file"
-                                  accept="image/*"
-                                  onChange={(event) =>
-                                    uploadSocialIcon(event, link.id)
-                                  }
-                                  disabled={uploading}
-                                />
+    <div className="min-w-0 flex-1 space-y-1">
+      <Input
+        id={`social-icon-${link.id}`}
+        type="file"
+        accept="image/*"
+        onChange={(event) =>
+          uploadSocialIcon(event, link.id)
+        }
+        disabled={
+          !cloudinaryImagesEnabled || uploading
+        }
+      />
 
-                                <p className="text-xs text-muted-foreground">
-                                  {uploading
-                                    ? "Uploading..."
-                                    : "Upload an icon image."}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
+      {cloudinaryImagesEnabled ? (
+        <p className="text-xs text-muted-foreground">
+          {uploading
+            ? "Uploading..."
+            : "Upload an icon image."}
+        </p>
+      ) : (
+        <p className="text-xs text-amber-600">
+          Cloudinary image uploads are disabled.
+          Existing icon preserved.
+        </p>
+      )}
+    </div>
+  </div>
+</div>
                         </div>
                       </div>
                     ))}
@@ -1755,45 +2096,77 @@ async function uploadPaymentQrCode(
 
                       {/* QR CODE */}
 
-                      <div className="space-y-3">
-                        <Label>QR code</Label>
+<div className="space-y-3">
+  <Label>QR code</Label>
 
-                        <div className="flex flex-wrap items-start gap-4">
-                          {method.qr_code_url ? (
-                            <div className="relative h-40 w-40 overflow-hidden rounded-lg border bg-white">
-                              <Image
-                                src={method.qr_code_url}
-                                alt={`${method.display_name || "Payment"} QR code`}
-                                fill
-                                unoptimized
-                                className="object-contain p-2"
-                              />
-                            </div>
-                          ) : (
-                            <div className="flex h-40 w-40 items-center justify-center rounded-lg border border-dashed text-center text-xs text-muted-foreground">
-                              No QR code
-                            </div>
-                          )}
+  <div className="flex flex-wrap items-start gap-4">
+    {method.qr_code_url ? (
+      method.qr_code_url.includes(
+        "res.cloudinary.com",
+      ) && !cloudinaryImagesEnabled ? (
+        <div className="flex h-40 w-40 items-center justify-center rounded-lg border bg-muted p-4 text-center text-sm text-muted-foreground">
+          <div>
+            <p>Cloudinary QR hidden</p>
 
-                          <div className="min-w-[220px] flex-1 space-y-2">
-                            <Input
-                              id={`payment-qr-${method.id}`}
-                              type="file"
-                              accept="image/*"
-                              onChange={(event) =>
-                                uploadPaymentQrCode(event, method.id)
-                              }
-                              disabled={paymentUploading}
-                            />
+            <p className="mt-1 text-xs">
+              Image preserved
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="relative h-40 w-40 overflow-hidden rounded-lg border bg-white">
+          <Image
+            src={method.qr_code_url}
+            alt={`${
+              method.display_name || "Payment"
+            } QR code`}
+            fill
+            unoptimized
+            className="object-contain p-2"
+          />
+        </div>
+      )
+    ) : (
+      <div className="flex h-40 w-40 items-center justify-center rounded-lg border border-dashed text-center text-xs text-muted-foreground">
+        No QR code
+      </div>
+    )}
 
-                            <p className="text-xs text-muted-foreground">
-                              {paymentUploading
-                                ? "Uploading QR code..."
-                                : "Optional. Upload the QR image customers should scan."}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
+    <div className="min-w-[220px] flex-1 space-y-2">
+      <Input
+        id={`payment-qr-${method.id}`}
+        type="file"
+        accept="image/*"
+        onChange={(event) =>
+          uploadPaymentQrCode(
+            event,
+            method.id,
+          )
+        }
+        disabled={
+          !cloudinaryImagesEnabled ||
+          paymentUploading
+        }
+      />
+
+      {cloudinaryImagesEnabled ? (
+        <p className="text-xs text-muted-foreground">
+          {paymentUploading
+            ? "Uploading QR code..."
+            : "Optional. Upload the QR image customers should scan."}
+        </p>
+      ) : (
+        <p className="text-xs text-amber-600">
+          Cloudinary images are disabled.
+          Existing QR code preserved and new QR
+          uploads are unavailable.
+        </p>
+      )}
+    </div>
+  </div>
+</div>
+
+
                     </div>
                   </div>
                 ))}

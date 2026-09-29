@@ -27,6 +27,12 @@ const adminCards = [
     href: "/admin/analytics",
     icon: "📊",
   },
+  {
+    title: "Cloudinary",
+    description: "Monitor image usage and control Cloudinary image delivery.",
+    href: "/admin/cloudinary",
+    icon: "☁️",
+  },
 ];
 
 export default async function AdminPage() {

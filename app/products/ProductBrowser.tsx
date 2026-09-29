@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Loader2 } from "lucide-react";
-import { CURRENCY_SYMBOL } from "../constants";
+import { CURRENCY_SYMBOL, CLOUDINARY_FALLBACK_IMAGE } from "../constants";
 
 type Product = {
   id: string;
@@ -39,11 +39,13 @@ export default function ProductBrowser({
   categories,
   initialCategory,
   catalogMode = false,
+  cloudinaryImagesEnabled = true,
 }: {
   products: Product[];
   categories: Category[];
   initialCategory?: string;
   catalogMode?: boolean;
+  cloudinaryImagesEnabled?: boolean;
 }) {
   const [selectedCategory, setSelectedCategory] = useState(
     initialCategory || "all",
@@ -201,48 +203,48 @@ export default function ProductBrowser({
           </Button>
         </div>
 
-            {!catalogMode && (
-        <Select
-          value={sortBy}
-          onValueChange={(value) => {
-            if (value) setSortBy(value);
-          }}
-        >
-          <SelectTrigger className="w-full sm:w-[190px]">
-            <SelectValue placeholder="Sort by" />
-          </SelectTrigger>
+        {!catalogMode && (
+          <Select
+            value={sortBy}
+            onValueChange={(value) => {
+              if (value) setSortBy(value);
+            }}
+          >
+            <SelectTrigger className="w-full sm:w-[190px]">
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
 
-          <SelectContent className="z-50 min-w-[190px] rounded-xl border bg-background p-1 shadow-xl">
-            <SelectItem
-              value="newest"
-              className="cursor-pointer rounded-lg py-2.5"
-            >
-              Newest
-            </SelectItem>
+            <SelectContent className="z-50 min-w-[190px] rounded-xl border bg-background p-1 shadow-xl">
+              <SelectItem
+                value="newest"
+                className="cursor-pointer rounded-lg py-2.5"
+              >
+                Newest
+              </SelectItem>
 
-            <SelectItem
-              value="most-expensive"
-              className="cursor-pointer rounded-lg py-2.5"
-            >
-              Most expensive
-            </SelectItem>
+              <SelectItem
+                value="most-expensive"
+                className="cursor-pointer rounded-lg py-2.5"
+              >
+                Most expensive
+              </SelectItem>
 
-            <SelectItem
-              value="least-expensive"
-              className="cursor-pointer rounded-lg py-2.5"
-            >
-              Least expensive
-            </SelectItem>
+              <SelectItem
+                value="least-expensive"
+                className="cursor-pointer rounded-lg py-2.5"
+              >
+                Least expensive
+              </SelectItem>
 
-            <SelectItem
-              value="oldest"
-              className="cursor-pointer rounded-lg py-2.5"
-            >
-              Oldest
-            </SelectItem>
-          </SelectContent>
-        </Select> 
-            )}
+              <SelectItem
+                value="oldest"
+                className="cursor-pointer rounded-lg py-2.5"
+              >
+                Oldest
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {aiUnavailable && (
@@ -315,6 +317,16 @@ export default function ProductBrowser({
           {filteredProducts.map((product) => {
             const image = product.images[0] ?? null;
 
+            const isCloudinaryImage =
+              image?.includes("res.cloudinary.com") ?? false;
+
+            const displayImage =
+              image && (!isCloudinaryImage || cloudinaryImagesEnabled)
+                ? image
+                : CLOUDINARY_FALLBACK_IMAGE;
+
+            const isFallbackImage = displayImage === CLOUDINARY_FALLBACK_IMAGE;
+
             const isOnSale =
               product.sale_price !== null && product.sale_price < product.price;
 
@@ -326,20 +338,18 @@ export default function ProductBrowser({
               >
                 {/* Image */}
                 <div className="relative overflow-hidden bg-muted">
-                  {image ? (
-                    <Image
-                      src={image}
-                      alt={product.name}
-                      width={600}
-                      height={600}
-                      unoptimized
-                      className="aspect-square w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
-                  ) : (
-                    <div className="flex aspect-square items-center justify-center text-sm text-muted-foreground">
-                      No image
-                    </div>
-                  )}
+                  <Image
+                    src={displayImage}
+                    alt={product.name}
+                    width={600}
+                    height={600}
+                    unoptimized
+                    className={
+                      isFallbackImage
+                        ? "aspect-square w-full bg-muted object-contain p-8"
+                        : "aspect-square w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    }
+                  />
 
                   {/* Custom sticker */}
                   {product.sticker && (

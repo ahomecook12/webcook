@@ -4,7 +4,7 @@ import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
 import CheckoutPayment from "@/components/storefront/checkout-payment";
 import CheckoutForm from "@/components/storefront/checkout-form";
-import { CURRENCY_SYMBOL } from "../constants";
+import { CURRENCY_SYMBOL, CLOUDINARY_FALLBACK_IMAGE } from "../constants";
 
 type CartProduct = {
   id: string;
@@ -59,7 +59,7 @@ export default async function CheckoutPage() {
 
     supabase
       .from("site_settings")
-      .select("catalog_mode")
+      .select("catalog_mode, cloudinary_images_enabled")
       .eq("id", true)
       .maybeSingle(),
 
@@ -88,6 +88,9 @@ export default async function CheckoutPage() {
   }
 
   const catalogMode = siteSettings?.catalog_mode ?? false;
+
+  const cloudinaryImagesEnabled =
+    siteSettings?.cloudinary_images_enabled ?? true;
 
   const { data: cartItems, error } = await supabase
     .from("cart_items")
@@ -263,39 +266,37 @@ export default async function CheckoutPage() {
                 </div>
               </section>
 
-{/* =====================================================
+              {/* =====================================================
     PREFERRED FULFILLMENT
 ===================================================== */}
-<section className="rounded-xl border p-5">
-  <h2 className="text-lg font-semibold">
-    Preferred fulfillment
-  </h2>
+              <section className="rounded-xl border p-5">
+                <h2 className="text-lg font-semibold">Preferred fulfillment</h2>
 
-  <p className="mt-1 text-sm text-muted-foreground">
-    Let us know when you would prefer your order to be fulfilled.
-  </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Let us know when you would prefer your order to be fulfilled.
+                </p>
 
-  <div className="mt-4 space-y-2">
-    <label
-      htmlFor="preferred-fulfillment-at"
-      className="text-sm font-medium"
-    >
-      Preferred date and time
-    </label>
+                <div className="mt-4 space-y-2">
+                  <label
+                    htmlFor="preferred-fulfillment-at"
+                    className="text-sm font-medium"
+                  >
+                    Preferred date and time
+                  </label>
 
-    <input
-      id="preferred-fulfillment-at"
-      name="preferred_fulfillment_at"
-      type="datetime-local"
-      className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
-    />
+                  <input
+                    id="preferred-fulfillment-at"
+                    name="preferred_fulfillment_at"
+                    type="datetime-local"
+                    className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
+                  />
 
-    <p className="text-xs text-muted-foreground">
-      This is your preferred fulfillment time and is not a guaranteed
-      delivery time.
-    </p>
-  </div>
-</section>
+                  <p className="text-xs text-muted-foreground">
+                    This is your preferred fulfillment time and is not a
+                    guaranteed delivery time.
+                  </p>
+                </div>
+              </section>
               {/* =====================================================
                   ITEMS
               ===================================================== */}
@@ -312,25 +313,34 @@ export default async function CheckoutPage() {
 
                     const image = product.images?.[0];
 
+                    const isCloudinaryImage =
+                      image?.includes("res.cloudinary.com") ?? false;
+
+                    const displayImage =
+                      image && (!isCloudinaryImage || cloudinaryImagesEnabled)
+                        ? image
+                        : CLOUDINARY_FALLBACK_IMAGE;
+
+                    const isFallbackImage =
+                      displayImage === CLOUDINARY_FALLBACK_IMAGE;
+
                     return (
                       <div
                         key={item.id}
                         className="flex gap-4 border-b pb-4 last:border-b-0 last:pb-0"
                       >
-                        {image ? (
-                          <Image
-                            src={image}
-                            alt={product.name}
-                            width={80}
-                            height={80}
-                            unoptimized
-                            className="h-20 w-20 rounded-lg object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-20 w-20 items-center justify-center rounded-lg bg-muted text-xs text-muted-foreground">
-                            No image
-                          </div>
-                        )}
+                        <Image
+                          src={displayImage}
+                          alt={product.name}
+                          width={80}
+                          height={80}
+                          unoptimized
+                          className={
+                            isFallbackImage
+                              ? "h-20 w-20 rounded-lg bg-muted object-contain p-2"
+                              : "h-20 w-20 rounded-lg object-cover"
+                          }
+                        />
 
                         <div className="min-w-0 flex-1">
                           <p className="font-medium">{product.name}</p>
@@ -359,86 +369,84 @@ export default async function CheckoutPage() {
                 </div>
               </section>
 
-{/* =====================================================
+              {/* =====================================================
     DELIVERY SERVICE
 ===================================================== */}
-<section className="rounded-xl border p-5">
-  <h2 className="text-lg font-semibold">
-    Delivery service
-  </h2>
+              <section className="rounded-xl border p-5">
+                <h2 className="text-lg font-semibold">Delivery service</h2>
 
-  <p className="mt-1 text-sm text-muted-foreground">
-    Choose who should arrange the delivery service.
-  </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Choose who should arrange the delivery service.
+                </p>
 
-  <div className="mt-4 space-y-4">
-    {/* CUSTOMER BOOKS */}
-    <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition hover:bg-muted/40">
-      <input
-        type="radio"
-        name="porter_status"
-        value="booked"
-        className="mt-1 h-4 w-4"
-      />
+                <div className="mt-4 space-y-4">
+                  {/* CUSTOMER BOOKS */}
+                  <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition hover:bg-muted/40">
+                    <input
+                      type="radio"
+                      name="porter_status"
+                      value="booked"
+                      className="mt-1 h-4 w-4"
+                    />
 
-      <span>
-        <span className="block font-medium">
-          I will book the delivery service myself
-        </span>
+                    <span>
+                      <span className="block font-medium">
+                        I will book the delivery service myself
+                      </span>
 
-        <span className="mt-1 block text-xs text-muted-foreground">
-          Add the delivery company, contact details, or other
-          delivery information below.
-        </span>
-      </span>
-    </label>
+                      <span className="mt-1 block text-xs text-muted-foreground">
+                        Add the delivery company, contact details, or other
+                        delivery information below.
+                      </span>
+                    </span>
+                  </label>
 
-    {/* ADMIN BOOKS */}
-    <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition hover:bg-muted/40">
-      <input
-        type="radio"
-        name="porter_status"
-        value="requested"
-        defaultChecked
-        className="mt-1 h-4 w-4"
-      />
+                  {/* ADMIN BOOKS */}
+                  <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition hover:bg-muted/40">
+                    <input
+                      type="radio"
+                      name="porter_status"
+                      value="requested"
+                      defaultChecked
+                      className="mt-1 h-4 w-4"
+                    />
 
-      <span>
-        <span className="block font-medium">
-          Request admin to book the delivery service
-        </span>
+                    <span>
+                      <span className="block font-medium">
+                        Request admin to book the delivery service
+                      </span>
 
-        <span className="mt-1 block text-xs text-muted-foreground">
-          We will arrange the delivery service for you.
-          Extra delivery charges may apply.
-        </span>
-      </span>
-    </label>
+                      <span className="mt-1 block text-xs text-muted-foreground">
+                        We will arrange the delivery service for you. Extra
+                        delivery charges may apply.
+                      </span>
+                    </span>
+                  </label>
 
-    {/* DETAILS */}
-    <div className="space-y-2">
-      <label
-        htmlFor="porter-details"
-        className="text-sm font-medium"
-      >
-        Delivery details
-      </label>
+                  {/* DETAILS */}
+                  <div className="space-y-2">
+                    <label
+                      htmlFor="porter-details"
+                      className="text-sm font-medium"
+                    >
+                      Delivery details
+                    </label>
 
-      <textarea
-        id="porter-details"
-        name="porter_details"
-        rows={4}
-        placeholder="Add the delivery company, contact details, or notes"
-        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-      />
+                    <textarea
+                      id="porter-details"
+                      name="porter_details"
+                      rows={4}
+                      placeholder="Add the delivery company, contact details, or notes"
+                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                    />
 
-      <p className="text-xs text-muted-foreground">
-        If you ask us to arrange the delivery, you can leave this blank.
-      </p>
-    </div>
-  </div>
-</section>
-
+                    <p className="text-xs text-muted-foreground">
+                      If you ask us to arrange the delivery, you can leave this
+                      blank.
+                    </p>
+                  </div>
+                </div>
+              </section>
 
               {/* =====================================================
                   PAYMENT
@@ -472,7 +480,9 @@ export default async function CheckoutPage() {
                   </div>
 
                   <div className="mt-3 flex justify-between text-sm">
-                    <span className="text-muted-foreground">Shipping - dont pay if you book porter</span>
+                    <span className="text-muted-foreground">
+                      Shipping - dont pay if you book porter
+                    </span>
 
                     <span>
                       {shippingPrice === 0

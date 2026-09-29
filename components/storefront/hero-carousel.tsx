@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { SHOP_NAME } from "@/app/constants";
+import { CLOUDINARY_FALLBACK_IMAGE, SHOP_NAME } from "@/app/constants";
 
 export type HeroMedia = {
   url: string;
@@ -75,7 +75,13 @@ function getYouTubeThumbnail(url: string) {
   return null;
 }
 
-export function HeroCarousel({ media }: { media: HeroMedia[] }) {
+export function HeroCarousel({
+  media,
+  cloudinaryImagesEnabled = true,
+}: {
+  media: HeroMedia[];
+  cloudinaryImagesEnabled?: boolean;
+}) {
   const [active, setActive] = useState(0);
   const [youtubePlaying, setYoutubePlaying] = useState(false);
 
@@ -84,7 +90,13 @@ export function HeroCarousel({ media }: { media: HeroMedia[] }) {
   const safeActive = media.length > 0 ? Math.min(active, media.length - 1) : 0;
 
   const item = media[safeActive];
+  const isCloudinaryImage =
+    item?.type === "image" && item.url.includes("res.cloudinary.com");
 
+  const heroImageUrl =
+    item?.type === "image" && (!isCloudinaryImage || cloudinaryImagesEnabled)
+      ? item.url
+      : CLOUDINARY_FALLBACK_IMAGE;
   /*
    * Change slide.
    *
@@ -143,13 +155,21 @@ export function HeroCarousel({ media }: { media: HeroMedia[] }) {
     <div className="relative aspect-[4/6] overflow-hidden rounded-xl bg-muted shadow-lg">
       {item.type === "image" ? (
         <Image
-          key={item.url}
-          src={item.url}
+          key={
+            cloudinaryImagesEnabled
+              ? item.url
+              : `${item.url}-cloudinary-disabled`
+          }
+          src={heroImageUrl}
           alt={`${SHOP_NAME} feature ${safeActive + 1}`}
           width={1000}
           height={800}
           unoptimized
-          className="h-full w-full object-cover"
+          className={
+            heroImageUrl === CLOUDINARY_FALLBACK_IMAGE
+              ? "h-full w-full bg-muted object-contain p-10"
+              : "h-full w-full object-cover"
+          }
           priority={safeActive === 0}
         />
       ) : youtubePlaying && youtubeEmbedUrl ? (

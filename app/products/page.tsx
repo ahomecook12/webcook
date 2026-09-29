@@ -42,7 +42,7 @@ export default async function ProductsPage({
 
     supabase
       .from("site_settings")
-      .select("catalog_mode")
+      .select("catalog_mode, cloudinary_images_enabled")
       .eq("id", true)
       .maybeSingle(),
   ]);
@@ -88,6 +88,7 @@ export default async function ProductsPage({
           categories={categories ?? []}
           initialCategory={selectedCategory?.id}
           catalogMode={siteSettings?.catalog_mode ?? false}
+          cloudinaryImagesEnabled={siteSettings?.cloudinary_images_enabled ?? true}
         />
       </div>
     </main>

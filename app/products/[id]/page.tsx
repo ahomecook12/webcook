@@ -6,7 +6,7 @@ import AddToCartButton from "@/components/storefront/add-to-cart-button";
 import ProductGallery from "@/components/storefront/product-gallery";
 import type { Metadata } from "next";
 import Image from "next/image";
-import { CURRENCY_SYMBOL, SHOP_NAME } from "@/app/constants";
+import { CURRENCY_SYMBOL, SHOP_NAME, CLOUDINARY_FALLBACK_IMAGE  } from "@/app/constants";
 
 type DisplaySettings = {
   price?: boolean;
@@ -37,12 +37,21 @@ export async function generateMetadata({
 
   const supabase = await createClient();
 
-  const { data: product } = await supabase
-    .from("products")
-    .select("name, description, images, price, sale_price")
-    .eq("id", id)
-    .eq("active", true)
-    .maybeSingle();
+const [{ data: product }, { data: siteSettings }] =
+  await Promise.all([
+    supabase
+      .from("products")
+      .select("name, description, images, price, sale_price")
+      .eq("id", id)
+      .eq("active", true)
+      .maybeSingle(),
+
+    supabase
+      .from("site_settings")
+      .select("cloudinary_images_enabled")
+      .eq("id", true)
+      .maybeSingle(),
+  ]);
 
   if (!product) {
     return {
@@ -52,7 +61,17 @@ export async function generateMetadata({
 
   const images = (product.images ?? []) as string[];
 
-  const image = images[0] ?? null;
+  const originalImage = images[0] ?? null;
+
+const isCloudinaryImage =
+  originalImage?.includes("res.cloudinary.com") ?? false;
+
+const image =
+  originalImage &&
+  (!isCloudinaryImage ||
+    siteSettings?.cloudinary_images_enabled !== false)
+    ? originalImage
+    : CLOUDINARY_FALLBACK_IMAGE;
 
   return {
     title: `${product.name} | ${SHOP_NAME}`,
@@ -120,7 +139,7 @@ export default async function ProductPage({
 
     supabase
       .from("site_settings")
-      .select("catalog_mode")
+      .select("catalog_mode, cloudinary_images_enabled")
       .eq("id", true)
       .maybeSingle(),
   ]);
@@ -130,6 +149,8 @@ export default async function ProductPage({
   }
 
   const catalogMode = siteSettings?.catalog_mode === true;
+  const cloudinaryImagesEnabled =
+  siteSettings?.cloudinary_images_enabled ?? true;
 
   const { data: categoryLinks } = await supabase
     .from("product_categories")
@@ -227,6 +248,7 @@ export default async function ProductPage({
               productName={product.name}
               images={images}
               videos={shown(settings, "videos") ? videos : []}
+              cloudinaryImagesEnabled={cloudinaryImagesEnabled}
             />
           </div>
 
@@ -241,27 +263,44 @@ export default async function ProductPage({
 
             {categories.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-2">
-                {categories.map((category) => (
-                  <Link
-                    key={category.id}
-                    href={`/products?category=${encodeURIComponent(
-                      category.slug,
-                    )}`}
-                    className="inline-flex items-center gap-2 rounded-full bg-secondary px-2 py-1 text-sm text-secondary-foreground hover:bg-secondary/80"
-                  >
-                    {category.image_url ? (
-                      <Image
-                        src={category.image_url}
-                        alt=""
-                        width={28}
-                        height={28}
-                        className="h-7 w-7 rounded-full object-cover"
-                      />
-                    ) : null}
+                {categories.map((category) => {
+  const isCloudinaryCategoryImage =
+    category.image_url?.includes("res.cloudinary.com") ?? false;
 
-                    <span className="pr-1">{category.name}</span>
-                  </Link>
-                ))}
+  const categoryImage =
+    category.image_url &&
+    (!isCloudinaryCategoryImage || cloudinaryImagesEnabled)
+      ? category.image_url
+      : category.image_url
+        ? CLOUDINARY_FALLBACK_IMAGE
+        : null;
+
+  return (
+    <Link
+      key={category.id}
+      href={`/products?category=${encodeURIComponent(
+        category.slug,
+      )}`}
+      className="inline-flex items-center gap-2 rounded-full bg-secondary px-2 py-1 text-sm text-secondary-foreground hover:bg-secondary/80"
+    >
+      {categoryImage ? (
+        <Image
+          src={categoryImage}
+          alt=""
+          width={28}
+          height={28}
+          className={
+            categoryImage === CLOUDINARY_FALLBACK_IMAGE
+              ? "h-7 w-7 rounded-full object-contain p-1"
+              : "h-7 w-7 rounded-full object-cover"
+          }
+        />
+      ) : null}
+
+      <span className="pr-1">{category.name}</span>
+    </Link>
+  );
+})}
               </div>
             )}
 

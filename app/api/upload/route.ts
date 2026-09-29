@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import cloudinary from "@/lib/cloudinary";
 import { requireAdmin } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 
 const MAX_FILE_SIZE = 4.5 * 1024 * 1024; // 4.5 MiB
 
@@ -10,20 +11,80 @@ export async function POST(request: Request) {
     // Authentication
     // -------------------------------------------------------
 
-    const authorization = request.headers.get("authorization");
+    const authorization =
+      request.headers.get("authorization");
 
-    const accessToken = authorization?.startsWith("Bearer ")
-      ? authorization.slice(7)
-      : undefined;
+    const accessToken =
+      authorization?.startsWith("Bearer ")
+        ? authorization.slice(7)
+        : undefined;
 
-    const { user, isAdmin } = await requireAdmin(accessToken);
+    const { user, isAdmin } =
+      await requireAdmin(accessToken);
 
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 },
+      );
     }
 
     if (!isAdmin) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return NextResponse.json(
+        { error: "Forbidden" },
+        { status: 403 },
+      );
+    }
+
+    // -------------------------------------------------------
+    // CLOUDINARY MASTER SWITCH
+    // -------------------------------------------------------
+    //
+    // This is the final server-side safety lock.
+    //
+    // Even if an upload button somewhere in the UI is
+    // accidentally left enabled, no Cloudinary upload can
+    // happen while cloudinary_images_enabled is false.
+    // -------------------------------------------------------
+
+    const supabase = await createClient(accessToken);
+
+    const {
+      data: siteSettings,
+      error: settingsError,
+    } = await supabase
+      .from("site_settings")
+      .select("cloudinary_images_enabled")
+      .eq("id", true)
+      .maybeSingle();
+
+    if (settingsError) {
+      console.error(
+        "Failed to read Cloudinary setting:",
+        settingsError,
+      );
+
+      return NextResponse.json(
+        {
+          error:
+            "Unable to verify Cloudinary upload status.",
+        },
+        { status: 500 },
+      );
+    }
+
+    const cloudinaryImagesEnabled =
+      siteSettings?.cloudinary_images_enabled ?? true;
+
+    if (!cloudinaryImagesEnabled) {
+      return NextResponse.json(
+        {
+          error:
+            "Cloudinary images are currently disabled.",
+          code: "CLOUDINARY_DISABLED",
+        },
+        { status: 403 },
+      );
     }
 
     // -------------------------------------------------------
@@ -32,11 +93,16 @@ export async function POST(request: Request) {
 
     const formData = await request.formData();
 
-    const file = formData.get("file") as File | null;
+    const file =
+      formData.get("file") as File | null;
+
     const folder = formData.get("folder");
 
     if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 });
+      return NextResponse.json(
+        { error: "No file provided" },
+        { status: 400 },
+      );
     }
 
     // -------------------------------------------------------
@@ -44,7 +110,10 @@ export async function POST(request: Request) {
     // -------------------------------------------------------
 
     if (file.size > MAX_FILE_SIZE) {
-      const sizeInMB = (file.size / (1024 * 1024)).toFixed(2);
+      const sizeInMB = (
+        file.size /
+        (1024 * 1024)
+      ).toFixed(2);
 
       return NextResponse.json(
         {
@@ -61,10 +130,14 @@ export async function POST(request: Request) {
     // FILE TYPE
     // -------------------------------------------------------
 
-    if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
+    if (
+      !file.type.startsWith("image/") &&
+      !file.type.startsWith("video/")
+    ) {
       return NextResponse.json(
         {
-          error: "Only image and video files can be uploaded.",
+          error:
+            "Only image and video files can be uploaded.",
         },
         { status: 400 },
       );
@@ -112,11 +185,15 @@ export async function POST(request: Request) {
                     ? "shop/social"
                     : folder === "reviews"
                       ? "shop/reviews"
-                      : folder === "payment-methods"
+                      : folder ===
+                          "payment-methods"
                         ? "shop/payment-methods"
                         : "shop/products",
 
-            resource_type: file.type.startsWith("video/") ? "video" : "image",
+            resource_type:
+              file.type.startsWith("video/")
+                ? "video"
+                : "image",
           },
           (error, result) => {
             if (error) {
@@ -127,7 +204,11 @@ export async function POST(request: Request) {
                 public_id: result.public_id,
               });
             } else {
-              reject(new Error("Cloudinary returned no result"));
+              reject(
+                new Error(
+                  "Cloudinary returned no result",
+                ),
+              );
             }
           },
         )
@@ -143,11 +224,17 @@ export async function POST(request: Request) {
       public_id: result.public_id,
     });
   } catch (error) {
-    console.error("Cloudinary upload error:", error);
+    console.error(
+      "Cloudinary upload error:",
+      error,
+    );
 
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : "Upload failed",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Upload failed",
       },
       { status: 500 },
     );

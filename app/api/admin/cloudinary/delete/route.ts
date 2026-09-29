@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import cloudinary from "@/lib/cloudinary";
 import { requireAdmin } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
   try {
@@ -9,13 +10,16 @@ export async function POST(request: Request) {
     // Authentication
     // -------------------------------------------------------
 
-    const authorization = request.headers.get("authorization");
+    const authorization =
+      request.headers.get("authorization");
 
-    const accessToken = authorization?.startsWith("Bearer ")
-      ? authorization.slice(7)
-      : undefined;
+    const accessToken =
+      authorization?.startsWith("Bearer ")
+        ? authorization.slice(7)
+        : undefined;
 
-    const { user, isAdmin } = await requireAdmin(accessToken);
+    const { user, isAdmin } =
+      await requireAdmin(accessToken);
 
     if (!user) {
       return NextResponse.json(
@@ -27,6 +31,56 @@ export async function POST(request: Request) {
     if (!isAdmin) {
       return NextResponse.json(
         { error: "Forbidden" },
+        { status: 403 },
+      );
+    }
+
+    // -------------------------------------------------------
+    // CLOUDINARY MASTER SWITCH
+    // -------------------------------------------------------
+    //
+    // Final server-side protection for deletes.
+    //
+    // When Cloudinary images are disabled, no delete request
+    // is allowed to reach Cloudinary.
+    // -------------------------------------------------------
+
+    const supabase = await createClient(accessToken);
+
+    const {
+      data: siteSettings,
+      error: settingsError,
+    } = await supabase
+      .from("site_settings")
+      .select("cloudinary_images_enabled")
+      .eq("id", true)
+      .maybeSingle();
+
+    if (settingsError) {
+      console.error(
+        "Failed to read Cloudinary setting:",
+        settingsError,
+      );
+
+      return NextResponse.json(
+        {
+          error:
+            "Unable to verify Cloudinary status.",
+        },
+        { status: 500 },
+      );
+    }
+
+    const cloudinaryImagesEnabled =
+      siteSettings?.cloudinary_images_enabled ?? true;
+
+    if (!cloudinaryImagesEnabled) {
+      return NextResponse.json(
+        {
+          error:
+            "Cloudinary images are currently disabled.",
+          code: "CLOUDINARY_DISABLED",
+        },
         { status: 403 },
       );
     }
@@ -47,9 +101,26 @@ export async function POST(request: Request) {
     }
 
     // -------------------------------------------------------
+    // Verify that this is actually a Cloudinary URL
+    // -------------------------------------------------------
+
+    const parsedUrl = new URL(url);
+
+    if (
+      parsedUrl.hostname !==
+      "res.cloudinary.com"
+    ) {
+      return NextResponse.json(
+        { error: "Invalid Cloudinary URL" },
+        { status: 400 },
+      );
+    }
+
+    // -------------------------------------------------------
     // Extract Cloudinary public_id from URL
     //
     // Example:
+    //
     // https://res.cloudinary.com/xxx/image/upload/
     // v1234567890/shop/products/my-image.jpg
     //
@@ -57,13 +128,12 @@ export async function POST(request: Request) {
     // shop/products/my-image
     // -------------------------------------------------------
 
-    const parsedUrl = new URL(url);
-
     const pathname = parsedUrl.pathname;
 
     const uploadMarker = "/upload/";
 
-    const uploadIndex = pathname.indexOf(uploadMarker);
+    const uploadIndex =
+      pathname.indexOf(uploadMarker);
 
     if (uploadIndex === -1) {
       return NextResponse.json(
@@ -76,30 +146,42 @@ export async function POST(request: Request) {
       uploadIndex + uploadMarker.length,
     );
 
-    // Remove Cloudinary version, e.g. v1234567890/
-    publicId = publicId.replace(/^v\d+\//, "");
+    // Remove Cloudinary version:
+    // v1234567890/
 
-    // Remove file extension
-    publicId = publicId.replace(/\.[^/.]+$/, "");
+    publicId = publicId.replace(
+      /^v\d+\//,
+      "",
+    );
+
+    // Remove file extension.
+
+    publicId = publicId.replace(
+      /\.[^/.]+$/,
+      "",
+    );
 
     if (!publicId) {
       return NextResponse.json(
-        { error: "Could not determine Cloudinary public ID" },
+        {
+          error:
+            "Could not determine Cloudinary public ID",
+        },
         { status: 400 },
       );
     }
-
-    //console.log("Deleting Cloudinary image:", publicId);
 
     // -------------------------------------------------------
     // Delete from Cloudinary
     // -------------------------------------------------------
 
-    const result = await cloudinary.uploader.destroy(publicId, {
-      resource_type: "image",
-    });
-
-    //console.log("Cloudinary delete result:", result);
+    const result =
+      await cloudinary.uploader.destroy(
+        publicId,
+        {
+          resource_type: "image",
+        },
+      );
 
     if (
       result.result !== "ok" &&
@@ -107,7 +189,8 @@ export async function POST(request: Request) {
     ) {
       return NextResponse.json(
         {
-          error: "Cloudinary could not delete the image",
+          error:
+            "Cloudinary could not delete the image",
           result: result.result,
         },
         { status: 500 },
@@ -120,7 +203,10 @@ export async function POST(request: Request) {
       result: result.result,
     });
   } catch (error) {
-    console.error("Cloudinary delete error:", error);
+    console.error(
+      "Cloudinary delete error:",
+      error,
+    );
 
     return NextResponse.json(
       {

@@ -37,6 +37,7 @@ type SiteSettings = {
   homepage_category_ids: string[] | null;
   customer_review_images: string[] | null;
   catalog_mode: boolean;
+  cloudinary_images_enabled: boolean;
 };
 
 type HomepageStrip = {
@@ -59,6 +60,7 @@ const defaultSettings: SiteSettings = {
   homepage_category_ids: [],
   customer_review_images: [],
   catalog_mode: false,
+  cloudinary_images_enabled: true,
 };
 
 export default async function Home() {
@@ -76,7 +78,7 @@ export default async function Home() {
     supabase
       .from("site_settings")
       .select(
-        "theme, hero_title, hero_description, hero_media, homepage_category_ids, customer_review_images, catalog_mode",
+        "theme, hero_title, hero_description, hero_media, homepage_category_ids, customer_review_images, catalog_mode, cloudinary_images_enabled",
       )
       .eq("id", true)
       .maybeSingle(),
@@ -113,7 +115,7 @@ export default async function Home() {
   //       (total, item) => total + item.quantity,
   //       0,
   //     );
- //   }
+  //   }
   //}
 
   const settings = {
@@ -304,7 +306,10 @@ export default async function Home() {
     <main
       className={`site-theme-${settings.theme} min-h-screen bg-background text-foreground`}
     >
-      <CustomerReviewDrawer images={settings.customer_review_images ?? []} />
+      <CustomerReviewDrawer
+        images={settings.customer_review_images ?? []}
+        cloudinaryImagesEnabled={settings.cloudinary_images_enabled}
+      />
 
       <SocialFloat
         settings={
@@ -323,7 +328,10 @@ export default async function Home() {
               {/* Soft decorative glow behind the carousel */}
               <div className="pointer-events-none absolute -inset-6 rounded-[2rem] bg-primary/50 blur-3xl animate-pulse" />
               <div className="relative">
-                <HeroCarousel media={settings.hero_media} />
+                <HeroCarousel
+                  media={settings.hero_media}
+                  cloudinaryImagesEnabled={settings.cloudinary_images_enabled}
+                />
               </div>
             </div>
           ) : (
@@ -334,7 +342,7 @@ export default async function Home() {
                 </p>
 
                 <p className="mt-3 text-2xl font-semibold">
-                  Home-Made, Hygenic, Pure & Delicious 
+                  Home-Made, Hygenic, Pure & Delicious
                 </p>
               </CardContent>
             </Card>
@@ -453,7 +461,8 @@ export default async function Home() {
                 {strip.products.length > 0 ? (
                   <ProductCarousel
                     products={strip.products as CarouselProduct[]}
-                     catalogMode={settings.catalog_mode}
+                    catalogMode={settings.catalog_mode}
+                    cloudinaryImagesEnabled={settings.cloudinary_images_enabled}
                   />
                 ) : (
                   <p className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
