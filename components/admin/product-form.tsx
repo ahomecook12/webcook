@@ -67,6 +67,7 @@ export type Product = {
   depth: number | null;
   images: string[] | null;
   video_urls: string[] | null;
+  youtube_post_urls: string[] | null;
   active: boolean | null;
   display_settings: ProductDisplaySettings | null;
   available_for_sale: boolean;
@@ -121,11 +122,17 @@ export function ProductForm({
   const [creatingCategory, setCreatingCategory] = useState(false);
   const [videoUrl, setVideoUrl] = useState("");
   const [videoUrls, setVideoUrls] = useState(product?.video_urls ?? []);
+  const [youtubePostUrl, setYoutubePostUrl] = useState("");
+
+const [youtubePostUrls, setYoutubePostUrls] = useState(
+  product?.youtube_post_urls ?? [],
+);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [aiAnalyzing, setAiAnalyzing] = useState(false);
 
+  
   function selectImages(event: React.ChangeEvent<HTMLInputElement>) {
     if (!cloudinaryImagesEnabled) {
       event.target.value = "";
@@ -296,6 +303,24 @@ export function ProductForm({
     setVideoUrls((current) => [...current, url]);
     setVideoUrl("");
   }
+
+function addYoutubePostUrl() {
+  const url = youtubePostUrl.trim();
+
+  if (!url) return;
+
+  if (youtubePostUrls.includes(url)) {
+    return alert("This YouTube post has already been added.");
+  }
+
+  setYoutubePostUrls((current) => [
+    ...current,
+    url,
+  ]);
+
+  setYoutubePostUrl("");
+}
+
   async function createCategory() {
     const name = newCategoryName.trim();
     if (!name) return;
@@ -351,6 +376,7 @@ export function ProductForm({
         depth: depth ? Number(depth) : null,
         images: images.map((image) => image.url!).filter(Boolean),
         video_urls: videoUrls,
+        youtube_post_urls: youtubePostUrls,
         active,
         available_for_sale: availableForSale,
         display_settings: displaySettings,
@@ -784,6 +810,68 @@ export function ProductForm({
             )}
           </CardContent>
         </Card>
+
+<Card>
+  <CardHeader className="pb-4">
+    <CardTitle className="text-lg">
+      YouTube Posts
+    </CardTitle>
+  </CardHeader>
+
+  <CardContent className="space-y-4">
+    <div className="flex gap-2">
+      <Input
+        type="url"
+        value={youtubePostUrl}
+        onChange={(event) =>
+          setYoutubePostUrl(event.target.value)
+        }
+        placeholder="YouTube post URL"
+      />
+
+      <Button
+        type="button"
+        onClick={addYoutubePostUrl}
+        variant="secondary"
+      >
+        Add
+      </Button>
+    </div>
+
+    {youtubePostUrls.length > 0 && (
+      <div className="space-y-2">
+        {youtubePostUrls.map((url, index) => (
+          <div
+            key={`${url}-${index}`}
+            className="flex items-center gap-3 rounded-md border px-3 py-2"
+          >
+            <span className="flex-1 break-all text-sm">
+              {url}
+            </span>
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() =>
+                setYoutubePostUrls((current) =>
+                  current.filter(
+                    (_, itemIndex) =>
+                      itemIndex !== index,
+                  ),
+                )
+              }
+            >
+              Remove
+            </Button>
+          </div>
+        ))}
+      </div>
+    )}
+  </CardContent>
+</Card>
+
+
         <Card>
           <CardHeader className="pb-4">
             <CardTitle className="text-lg">Public Product Page</CardTitle>

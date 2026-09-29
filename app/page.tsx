@@ -5,7 +5,6 @@ import {
   HeroCarousel,
   type HeroMedia,
 } from "@/components/storefront/hero-carousel";
-import { createClient } from "@/lib/supabase/server";
 import {
   ProductCarousel,
   type CarouselProduct,
@@ -13,6 +12,10 @@ import {
 import { SocialFloat } from "@/components/storefront/social-float";
 import { SHOP_NAME } from "./constants";
 import CustomerReviewDrawer from "@/components/storefront/customer-review-drawer";
+import {
+  getCachedHomepageSettings,
+  getCachedHomepageProducts,
+} from "@/lib/cache/homepage";
 
 type DisplaySettings = {
   price?: boolean;
@@ -64,59 +67,11 @@ const defaultSettings: SiteSettings = {
 };
 
 export default async function Home() {
-  const supabase = await createClient();
 
-  const [
-    {
-      data: { user },
-    },
-    { data: savedSettings },
-    { data: socialSettings },
-  ] = await Promise.all([
-    supabase.auth.getUser(),
-
-    supabase
-      .from("site_settings")
-      .select(
-        "theme, hero_title, hero_description, hero_media, homepage_category_ids, customer_review_images, catalog_mode, cloudinary_images_enabled",
-      )
-      .eq("id", true)
-      .maybeSingle(),
-    supabase
-      .from("storefront_settings")
-      .select(
-        `
-       social_enabled,
-    social_links
-      `,
-      )
-      .maybeSingle(),
-  ]);
-
-  // let isAdmin = false;
-  // let cartCount = 0;
-
-  // if (user) {
-  //   const [{ data: profile }, { data: cart }] = await Promise.all([
-  //     supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
-
-  //     supabase.from("carts").select("id").eq("user_id", user.id).maybeSingle(),
-  //   ]);
-
-  //   isAdmin = profile?.role === "admin";
-
-  //   if (cart) {
-  //     const { data: cartItems } = await supabase
-  //       .from("cart_items")
-  //       .select("quantity")
-  //       .eq("cart_id", cart.id);
-
-  //     cartCount = (cartItems ?? []).reduce(
-  //       (total, item) => total + item.quantity,
-  //       0,
-  //     );
-  //   }
-  //}
+const {
+  savedSettings,
+  socialSettings,
+} = await getCachedHomepageSettings();
 
   const settings = {
     ...defaultSettings,
@@ -133,75 +88,16 @@ export default async function Home() {
     (id) => id !== ALL_PRODUCTS_ID && id !== PREBOOKING_ID,
   );
 
-  /*
-   * Load the real categories.
-   */
-  const { data: categories } = categoryIds.length
-    ? await supabase
-        .from("categories")
-        .select("id, name, slug")
-        .in("id", categoryIds)
-        .eq("is_active", true)
-    : { data: [] };
-
-  /*
-   * Load ALL active products.
-   *
-   * This is also used by the ALL PRODUCTS strip.
-   */
-  const { data: allProductsData, error: allProductsError } =
-    homepageStripIds.includes(ALL_PRODUCTS_ID)
-      ? await supabase
-          .from("products")
-          .select(
-            `
-              id,
-              name,
-              price,
-              sale_price,
-              images,
-              display_settings,
-              active,
-              sticker
-            `,
-          )
-          .eq("active", true)
-          .order("created_at", { ascending: false })
-      : { data: [], error: null };
-
-  if (allProductsError) {
-    console.error("Homepage all products loading error:", allProductsError);
-  }
-
-  const allProducts = (allProductsData ?? []) as StoreProduct[];
-
-  /*
-   * Load products belonging to selected categories.
-   */
-  const { data: categoryLinks, error: productsError } = categoryIds.length
-    ? await supabase
-        .from("product_categories")
-        .select(
-          `
-              category_id,
-              product:products(
-                id,
-                name,
-                price,
-                sale_price,
-                images,
-                display_settings,
-                active,
-                sticker
-              )
-            `,
-        )
-        .in("category_id", categoryIds)
-    : { data: [], error: null };
-
-  if (productsError) {
-    console.error("Homepage category products loading error:", productsError);
-  }
+  const {
+  categories,
+  allProductsData,
+  categoryLinks,
+} = await getCachedHomepageProducts(
+  categoryIds,
+  homepageStripIds.includes(ALL_PRODUCTS_ID),
+);
+  
+ const allProducts = allProductsData as StoreProduct[];
 
   const productsByCategory = new Map<string, StoreProduct[]>();
 

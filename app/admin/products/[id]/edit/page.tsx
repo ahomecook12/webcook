@@ -29,7 +29,7 @@ export default async function EditProductPage({
     supabase
       .from("products")
       .select(
-        "id, name, description, size, price, sale_price, stock, weight_grams, height, width, depth, images, video_urls, active, available_for_sale, display_settings, keywords, sticker",
+        "id, name, description, size, price, sale_price, stock, weight_grams, height, width, depth, images, video_urls, youtube_post_urls, active, available_for_sale, display_settings, keywords, sticker",
       )
       .eq("id", id)
       .maybeSingle(),

@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { getCachedProductsPageData } from "@/lib/cache/products";
 import ProductBrowser from "./ProductBrowser";
 
 export default async function ProductsPage({
@@ -7,53 +7,11 @@ export default async function ProductsPage({
   const params = await searchParams;
   const categorySlug = params.category;
 
-  const supabase = await createClient();
-
-  const [
-    { data: products, error: productsError },
-    { data: categories, error: categoriesError },
-     { data: siteSettings },
-  ] = await Promise.all([
-    supabase
-      .from("products")
-      .select(
-        `
-          id,
-          name,
-          description,
-          keywords,
-          sticker,
-          price,
-          sale_price,
-          images,
-          product_categories ( category_id ),
-          created_at
-        `,
-      )
-      .eq("active", true)
-      .order("name"),
-
-    supabase
-      .from("categories")
-      .select("id, name, slug")
-      .eq("is_active", true)
-      .order("sort_order")
-      .order("name"),
-
-    supabase
-      .from("site_settings")
-      .select("catalog_mode, cloudinary_images_enabled")
-      .eq("id", true)
-      .maybeSingle(),
-  ]);
-
-  if (productsError) {
-    console.error("Products loading error:", productsError);
-  }
-
-  if (categoriesError) {
-    console.error("Categories loading error:", categoriesError);
-  }
+ const {
+  products,
+  categories,
+  siteSettings,
+} = await getCachedProductsPageData();
 
   const formattedProducts = (products ?? []).map((product) => ({
     id: product.id,

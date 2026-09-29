@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/supabase/admin";
+import ClearCacheButton from "@/components/admin/clear-cache-button";
 
 const adminCards = [
   {
@@ -51,15 +52,19 @@ export default async function AdminPage() {
           <p className="mt-2 text-muted-foreground">Manage your shop</p>
         </div>
 
-        <Link
-          href="/admin/settings"
-          title="Shop Settings"
-          aria-label="Shop Settings"
-          className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition hover:bg-muted"
-        >
-          <span>Shop Settings</span>
-          <span className="text-base">⚙️</span>
-        </Link>
+        <div className="flex items-start gap-2">
+          <ClearCacheButton />
+
+          <Link
+            href="/admin/settings"
+            title="Shop Settings"
+            aria-label="Shop Settings"
+            className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition hover:bg-muted"
+          >
+            <span>Shop Settings</span>
+            <span className="text-base">⚙️</span>
+          </Link>
+        </div>
       </div>
 
       <div className="mt-8 grid gap-5 sm:grid-cols-2">
