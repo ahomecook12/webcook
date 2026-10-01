@@ -50,7 +50,7 @@ export function getGoogleCalendarAuthorizationUrl() {
 
   return client.generateAuthUrl({
     access_type: "offline",
-    prompt: "consent",
+    prompt: "select_account consent",
     scope: [GOOGLE_CALENDAR_SCOPE],
 
     // Explicitly provide the redirect URI as well.
